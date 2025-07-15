@@ -1,6 +1,6 @@
 ## Dashboard
 
-This Project, written in python, proposes a good practice of chatbot system.
+This Project, written in python, proposes a good practice of chatbot system, providing multi-turns, managing prompts, your own agents.
 
 ## Quickstart
 
