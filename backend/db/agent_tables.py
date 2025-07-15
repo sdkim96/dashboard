@@ -57,7 +57,6 @@ class AgentDetail(AgentBase):
         doc="Unique identifier for the agent detail. It is automatically generated integer."
     )
     agent_id: Mapped[int] = mapped_column(
-        unique=True,
         doc="Foreign key referencing the agent this detail belongs to. It is a foreign key to agent_master table."
     )
     prompt: Mapped[str] = mapped_column(
@@ -68,6 +67,10 @@ class AgentDetail(AgentBase):
     )
     output_schema: Mapped[str] = mapped_column(
         doc="Schema of the output produced by the agent. Marshaled as JSON string. It can be unmarshalled to a Python dictionary."
+    )
+    version: Mapped[int] = mapped_column(
+        default=1,
+        doc="Version of the agent detail. It is incremented when the agent detail is updated."
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the agent detail was created."
@@ -88,7 +91,7 @@ class AgentTag(AgentBase):
         autoincrement=True,
         doc="Unique identifier for the agent tag."
     )
-    agent_id: Mapped[int] = mapped_column(
+    agent_id: Mapped[str] = mapped_column(
         doc="Foreign key referencing the agent this tag belongs to.",
     )
     tag: Mapped[str] = mapped_column(
@@ -112,11 +115,11 @@ class AgentSubscriber(AgentBase):
         autoincrement=True,
         doc="Unique identifier for the agent subscriber."
     )
-    agent_id: Mapped[int] = mapped_column(
-        doc="Foreign key referencing the agent this subscriber belongs to.",
-    )
     user_id: Mapped[int] = mapped_column(
         doc="Foreign key referencing the user who subscribed to the agent.",
+    )
+    agent_id: Mapped[str] = mapped_column(
+        doc="Foreign key referencing the agent this subscriber belongs to.",
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the agent subscription was created."
