@@ -1,5 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-engine = create_engine('sqlite:///example.db')
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from backend.config import CONFIG
+
+engine = create_engine(
+    url=CONFIG.database_url,
+)
+SessionLocal = sessionmaker(
+    autocommit=False, 
+    autoflush=False, 
+    bind=engine,
+    
+)

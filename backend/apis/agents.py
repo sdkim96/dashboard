@@ -16,7 +16,13 @@ AGENTS = APIRouter(
 @AGENTS.get(
     path="",
     summary="Explore Agents in Marketplace",
-    description="Explores agents available in the marketplace.",
+    description="""
+## Explore Agents in Marketplace
+
+This api lets user explore agents available in the marketplace.
+It supports pagination and searching by agent name or tags.
+
+""",
     response_model=mdl.GetAvailableAgentsResponse,
 )
 async def get_available_agents(
@@ -69,8 +75,7 @@ async def get_agent(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
     agent_id: str,
 ) -> mdl.GetAgentResponse:
-    """
-    Retrieves details of a specific agent by its ID.
+    """ Retrieves details of a specific agent by its ID.
     
     Args:
         agent_id (str): Unique identifier of the agent.

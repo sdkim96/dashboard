@@ -110,3 +110,17 @@ class AgentDetail(BaseModel):
         examples=["2023-10-01T12:00:00Z"]
     )
 
+    @classmethod
+    def failed(cls) -> "AgentDetail":
+        return cls(
+            agent_id="",
+            author_name=None,
+            name="",
+            description="",
+            icon_link=None,
+            tags=[],
+            prompt=None,
+            created_at="",
+            updated_at=""
+        )
+
