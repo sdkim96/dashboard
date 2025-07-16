@@ -1,10 +1,12 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException
+
+from sqlalchemy.orm import Session
 
 import backend.constants as c
 import backend.deps as dp
 import backend.models.api as mdl
+import backend.services.agents as svc
 
 AGENTS = APIRouter(
     prefix=c.APIPrefix.AGENTS.value,
@@ -19,6 +21,9 @@ AGENTS = APIRouter(
 )
 async def get_available_agents(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
+    username: Annotated[str, Depends(dp.get_current_username)],
+    params: mdl.GetAvailableAgentsRequest = Depends(),
 ) -> mdl.GetAvailableAgentsResponse:
     """
     Explores agents available in the marketplace.
@@ -27,21 +32,31 @@ async def get_available_agents(
         
         
     Returns:
-        StreamingResponse: A streaming response containing the generated completion.
+        GetAvailableAgentsResponse: Response model containing a list of available agents in marketplace.
     """
-    
-    
+    agents, err = svc.get_available_agents(
+        session=session,
+        request_id=request_id,
+        username=username,
+        offset=params.offset,
+        limit=params.size,
+        search=params.search,
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving agents: {err}"
+        )
+
     return mdl.GetAvailableAgentsResponse(
         status="success",
         message="Available agents retrieved successfully.",
         request_id=request_id,
-        agents=[
-            mdl.Agent(
-                agent_id="agent-123",
-                name="Example Agent",
-                icon_link=None,
-            )
-        ]
+        agents=agents,
+        total=len(agents),
+        page=params.page,
+        size=params.size,
+        has_next=len(agents) > params.offset + params.size,
     )
 
 @AGENTS.get(

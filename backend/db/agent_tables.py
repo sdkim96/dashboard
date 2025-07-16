@@ -53,14 +53,11 @@ class AgentDetail(AgentBase):
         autoincrement=True,
         doc="Unique identifier for the agent detail. It is automatically generated integer."
     )
-    agent_id: Mapped[int] = mapped_column(
+    agent_id: Mapped[str] = mapped_column(
         doc="Foreign key referencing the agent this detail belongs to. It is a foreign key to agent_master table."
     )
     prompt: Mapped[str] = mapped_column(
         doc="The prompt used by the agent to generate responses. It can include placeholders for dynamic content."
-    )
-    input_schema: Mapped[str] = mapped_column(
-        doc="Schema of the output produced by the agent. Marshaled as JSON string. It can be unmarshalled to a Python dictionary."
     )
     output_schema: Mapped[str] = mapped_column(
         doc="Schema of the output produced by the agent. Marshaled as JSON string. It can be unmarshalled to a Python dictionary."
@@ -149,12 +146,9 @@ class AgentPrivacy(AgentBase):
     )
 
     created_at: Mapped[dt.datetime] = mapped_column(
-        default_factory=dt.datetime.utcnow,
         doc="Timestamp when the hide configuration was created."
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
-        default_factory=dt.datetime.utcnow,
-        onupdate=dt.datetime.utcnow,
         doc="Timestamp when the hide configuration was last updated."
     )
 

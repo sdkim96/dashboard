@@ -40,6 +40,34 @@ class BaseResponse(BaseModel):
 ## 1. Request Models ##
 #######################
 
+class GetAvailableAgentsRequest(BaseRequest):
+    """
+    GET /api/v1/agents Request model
+    """
+    search: str | None = Field(
+        default=None,
+        description="Search term to filter agents by name or description.",
+        examples=["example", "cool agent"]
+    )
+    page: int = Field(
+        default=1,
+        ge=1,
+        description="Page number of the results to return.",
+        examples=[1]
+    )
+    size: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Number of agents per page.",
+        examples=[20]
+    )
+
+    @property
+    def offset(self) -> int:
+        """Offset to be used in DB queries"""
+        return (self.page - 1) * self.size
+
 class PostPublishAgentRequest(BaseRequest):
     """
     POST /api/v1/agent/publish Request model
@@ -206,6 +234,27 @@ class GetAvailableAgentsResponse(BaseResponse):
             )
         ]]
     )
+    total: int = Field(
+        ...,
+        description="Total number of agents matching the query.",
+        examples=[103]
+    )
+    page: int = Field(
+        description="Current page number.",
+        ge=1,
+        examples=[1]
+    )
+    size: int = Field(
+        description="Number of items per page.",
+        ge=1,
+        examples=[20]
+    )
+    has_next: bool = Field(
+        description="Whether there is a next page.",
+        examples=[True]
+    )
+
+    
 
 
 class GetAgentResponse(BaseResponse):

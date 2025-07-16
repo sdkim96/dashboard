@@ -45,6 +45,7 @@ class Message(ConversationBase):
     __tablename__ = 'message'
 
     message_id: Mapped[str] = mapped_column(
+        primary_key=True,
         doc="A unique identifier for the message in the conversation."
     )
     conversation_id: Mapped[str] = mapped_column(
@@ -74,3 +75,14 @@ class Message(ConversationBase):
     
     def __repr__(self):
         return f"<Message(id={self.message_id}, conversation_id={self.conversation_id})>"
+    
+
+
+def create_conversations_all(engine: Engine):
+    """
+    Creates all tables related to conversations in the database.
+    
+    Args:
+        engine (Engine): SQLAlchemy engine to connect to the database.
+    """
+    ConversationBase.metadata.create_all(bind=engine)

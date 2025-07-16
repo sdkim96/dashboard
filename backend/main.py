@@ -8,6 +8,7 @@ import backend.constants as c
 import backend.deps as dp
 
 from backend.apis import init_apis
+from backend.db import init_db
 from backend.models.api import BaseResponse
 
 app = FastAPI()
@@ -37,6 +38,7 @@ async def read_root(
     )
 
 init_apis(app)
+init_db()
 
 if __name__ == "__main__":
     import uvicorn
