@@ -1,9 +1,20 @@
-from typing import Generic
+import uuid
+from typing import List
 
 from pydantic import BaseModel, Field
 
 import backend._types as t
 import backend.constants as c
+
+from backend.models.user import User
+from backend.models.agent import Agent, AgentDetail, AgentPublish
+from backend.models.llm import LLMModel
+from backend.models.conversations import ConversationMaster
+from backend.models.message import MessageRequest, MessageResponse, Content
+
+class BaseRequest(BaseModel):
+    pass
+
 
 class BaseResponse(BaseModel):
     """
@@ -19,9 +30,221 @@ class BaseResponse(BaseModel):
         description="Message providing additional information about the response.",
         examples=[c.API_BASE_MESSAGE]
     )
-    data: t.DataUnion = Field(
-        default=None,
-        description="Data returned by the API. Can be a dictionary, a Pydantic model, or None.",
-        examples=[{"key": "value"}, None]
+    request_id: str = Field(
+        ...,
+        description="Unique identifier for the request, used for tracking and debugging.",
+        examples=[str(uuid.uuid4())]
     )
     
+#######################
+## 1. Request Models ##
+#######################
+
+class PostPublishAgentRequest(BaseRequest):
+    """
+    POST /api/v1/agent/publish Request model
+    """
+    agent: AgentPublish = Field(
+        ...,
+        description="Details of the agent to be published.",
+        examples=[AgentPublish(
+            name="Example Agent", 
+            icon_link=None,
+            description="This is an example agent.",
+            tags=["cool", "good"],
+            prompt="This is an example prompt for the agent.",
+            output_schema={"go": "string", "stop": "string"}
+        )]
+    )
+
+
+class PutModifyAgentRequest(BaseRequest):
+    """
+    POST /api/v1/agent/publish Request model
+    """
+    agent: AgentPublish = Field(
+        ...,
+        description="Details of the agent to be published.",
+        examples=[AgentPublish(
+            name="Example Agent", 
+            icon_link=None,
+            description="This is an example agent.",
+            tags=["cool", "good"],
+            prompt="This is an example prompt for the agent.",
+            output_schema={"go": "string", "stop": "string"}
+        )]
+    )
+
+
+class PostGenerateCompletionRequest(BaseRequest):
+    """
+    POST /api/v1/completion Request model
+    """
+    action: t.CompletionActionLiteral = Field(
+        ...,
+        description="Action to be performed for the completion request, e.g., 'next', 'retry', or 'variant'.",
+        examples=["next", "retry", "variant"]
+    )
+    conversation_id: str = Field(
+        ...,
+        description="ID of the conversation for which the completion is requested.",
+        examples=[str(uuid.uuid4())]
+    )
+    parent_message_id: str | None = Field(
+        ...,
+        description="ID of the parent message for the completion request.",
+        examples=[str(uuid.uuid4())]
+    )
+    agent_id: str = Field(
+        ...,
+        description="ID of the agent to use for generating the completion.",
+        examples=["agent-123"]
+    )
+    model: str = Field(
+        ...,
+        description="Model to be used for generating the completion.",
+        examples=["gpt-3.5-turbo"]
+    )
+    messages: List[MessageRequest] = Field(
+        ...,
+        description="List of messages in the conversation for which the completion is requested.",
+        examples=[[MessageRequest(
+            content=Content(type='text', parts=["Hello, how can I help you?"]),
+        )]]
+    )
+
+########################
+## 2. Response Models ##
+########################
+class GetMeResponse(BaseResponse):
+    """
+    GET /api/v1/user Response model
+    """
+    user: User = Field(
+        ...,
+        description="User information model containing details about the current user.",
+        examples=[User(
+            user_id=str(uuid.uuid4()),
+            username="example_user",
+            email="ss@gamil.com",
+            icon_link="https://example.com/icon.png"
+        )]
+    )
+    agents: List[Agent] = Field(
+        default_factory=list,
+        description="List of agent IDs that the user is subscribed to.",
+        examples=[[
+            Agent(
+                agent_id="agent-123", name="Example Agent", icon_link=None, tags=["cool", "good"]
+            )]]
+    )
+    models: List[LLMModel] = Field(
+        default_factory=list,
+        description="List of model IDs that the user has access to.",
+        examples=[[
+            LLMModel(
+                model_id="model-123", name="Example Model", description="An example LLM model.", deployment_id="deployment-123", icon_link=None
+            )
+        ]]
+    )
+
+
+class GetConversationsResponse(BaseResponse):
+    """
+    GET /api/v1/conversations Response model
+    """
+    conversations: List[ConversationMaster] = Field(
+        default_factory=list,
+        description="List of conversations associated with the user.",
+        examples=[[
+            ConversationMaster(
+                conversation_id=str(uuid.uuid4()),
+                title="Cool Conversation",
+                icon="😎",
+                created_at="2023-10-01T12:00:00Z",
+                updated_at="2023-10-01T12:00:00Z"
+            )
+        ]]
+    )
+
+class GetConversationResponse(BaseResponse):
+    """
+    GET /api/v1/conversation Response model
+    """
+    conversation: ConversationMaster = Field(
+        ...,
+        description="List of conversations associated with the user.",
+        examples=[
+            ConversationMaster(
+                conversation_id=str(uuid.uuid4()),
+                title="Cool Conversation",
+                icon="😎",
+                created_at="2023-10-01T12:00:00Z",
+                updated_at="2023-10-01T12:00:00Z"
+            )
+        ]
+    )
+    messages: List[MessageResponse] = Field(
+        default_factory=list,
+        description="List of messages in the conversation.",
+    )
+
+
+class GetAvailableAgentsResponse(BaseResponse):
+    """
+    GET /api/v1/agents Response model
+    """
+    agents: List[Agent] = Field(
+        default_factory=list,
+        description="List of available agents.",
+        examples=[[
+            Agent(
+                agent_id="agent-123", 
+                name="Example Agent", 
+                icon_link=None,
+                tags=["cool", "good"]
+            )
+        ]]
+    )
+
+
+class GetAgentResponse(BaseResponse):
+    """
+    GET /api/v1/agent Response model
+    """
+    agent: AgentDetail = Field(
+        ...,
+        description="Details of the requested agent.",
+        examples=[AgentDetail(
+            agent_id="agent-123", 
+            name="Example Agent", 
+            icon_link=None,
+            author_name="Author Name",
+            description="This is an example agent.",
+            tags=["cool", "good"],
+            prompt="This is an example prompt for the agent.",
+            created_at="2023-10-01T12:00:00Z",
+            updated_at="2023-10-01T12:00:00Z"
+        )]
+    )
+
+
+class PostSubscribeAgentResponse(BaseResponse):
+    """
+    POST /api/v1/agent/agent_id/subscribe Response model
+    """
+    pass
+
+
+class PostPublishAgentResponse(BaseResponse):
+    """
+    POST /api/v1/agent/publish Response model
+    """
+    pass
+
+
+class PutModifyAgentResponse(BaseResponse):
+    """
+    PUT /api/v1/agent/agent_id Response model
+    """
+    pass

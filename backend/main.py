@@ -1,7 +1,13 @@
-from fastapi import FastAPI
+import uuid
+from typing import Annotated
+
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 import backend.constants as c
+import backend.deps as dp
+
+from backend.apis import init_apis
 from backend.models.api import BaseResponse
 
 app = FastAPI()
@@ -21,12 +27,16 @@ app.add_middleware(
     summary="Root Endpoint",
     description="Welcome endpoint for the API. Returns a welcome message.",
 )
-async def read_root() -> BaseResponse:
+async def read_root(
+    request_id: Annotated[str, Depends(dp.generate_request_id)]
+) -> BaseResponse:
     return BaseResponse(
         status="success",
         message="Welcome to the API!",
-        data=None
+        request_id=request_id,
     )
+
+init_apis(app)
 
 if __name__ == "__main__":
     import uvicorn

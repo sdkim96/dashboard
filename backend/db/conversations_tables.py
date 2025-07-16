@@ -27,6 +27,9 @@ class Conversation(ConversationBase):
         default=False,
         doc="Flag indicating whether the conversation is deleted. Default is False."
     )
+    icon: Mapped[Optional[str]] = mapped_column(
+        doc="Link to the icon representing the conversation. It can be a URL or a path"
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the conversation was created.",
     )
@@ -50,14 +53,17 @@ class Message(ConversationBase):
     parent_message_id: Mapped[Optional[str]] = mapped_column(
         doc="The ID of the parent message in the conversation. It can be None for root messages."
     )
+    agent_id: Mapped[Optional[str]] = mapped_column(
+        doc="The ID of the agent that sent the message. It can be None if the message is from a user."
+    )
     role: Mapped[str] = mapped_column(
         doc="Role of the message sender, e.g., 'user' or 'assistant'."
     )
-    message: Mapped[str] = mapped_column(
+    content: Mapped[str] = mapped_column(
         doc="The content of the message in the conversation."
     )
-    agent_id: Mapped[Optional[str]] = mapped_column(
-        doc="The ID of the agent that sent the message. It can be None if the message is from a user."
+    model: Mapped[str] = mapped_column(
+        doc="The model used to generate the message. It can be a specific model name"
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the message was created.",

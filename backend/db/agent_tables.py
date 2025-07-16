@@ -7,8 +7,8 @@ from sqlalchemy.orm import mapped_column, DeclarativeBase, Mapped
 class AgentBase(DeclarativeBase):
     pass
 
-class AgentMaster(AgentBase):
-    __tablename__ = 'agent_master'
+class Agent(AgentBase):
+    __tablename__ = 'agent'
     
     agent_id: Mapped[str] = mapped_column(
         primary_key=True,
@@ -19,9 +19,6 @@ class AgentMaster(AgentBase):
     )
     name: Mapped[str] = mapped_column(
         doc="Name of the agent, unique across all agents."
-    )
-    issuer: Mapped[str] = mapped_column(
-        doc="The issuer of the agent, typically the organization or individual who created it."
     )
     icon_link: Mapped[Optional[str]] = mapped_column(
         doc="Link to the icon representing the agent. It can be a URL or a path"
@@ -127,6 +124,42 @@ class AgentSubscriber(AgentBase):
     
     def __repr__(self):
         return f"<AgentSubscriber(id={self.id}, agent_id={self.agent_id}, user_id={self.user_id})>"
+
+
+class AgentPrivacy(AgentBase):
+    __tablename__ = 'agent_privacy'
+
+    agent_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc="Foreign key referencing the agent. Each agent can have one hide config."
+    )
+    
+    hide_author: Mapped[bool] = mapped_column(
+        default=False,
+        doc="If True, the author's identity is hidden."
+    )
+    
+    hide_prompt: Mapped[bool] = mapped_column(
+        default=False,
+        doc="If True, the agent's prompt is hidden."
+    )
+
+    reason: Mapped[Optional[str]] = mapped_column(
+        doc="Optional reason for hiding the information. Can be displayed to end users if needed."
+    )
+
+    created_at: Mapped[dt.datetime] = mapped_column(
+        default_factory=dt.datetime.utcnow,
+        doc="Timestamp when the hide configuration was created."
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        default_factory=dt.datetime.utcnow,
+        onupdate=dt.datetime.utcnow,
+        doc="Timestamp when the hide configuration was last updated."
+    )
+
+    def __repr__(self):
+        return f"<AgentHide(agent_id={self.agent_id}, hide_author={self.hide_author}, hide_prompt={self.hide_prompt})>"
 
 def create_agent_all(engine: Engine):
     AgentBase.metadata.create_all(engine)

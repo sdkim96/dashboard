@@ -25,6 +25,10 @@ class User(UserBase):
     password_hash: Mapped[str] = mapped_column(
         nullable=False
     )
+    is_superuser: Mapped[bool] = mapped_column(
+        default=False,
+        doc="Flag indicating whether the user has superuser privileges."
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         nullable=False
     )
