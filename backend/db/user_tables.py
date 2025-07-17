@@ -14,6 +14,10 @@ class User(UserBase):
         primary_key=True,
         autoincrement=True,
     )
+    user_id: Mapped[str] = mapped_column(
+        unique=True,
+        doc="Unique identifier for the user."
+    )
     username: Mapped[str] = mapped_column(
         nullable=False, 
         unique=True
@@ -43,3 +47,6 @@ class User(UserBase):
     
 def create_user_all(engine: Engine):
     UserBase.metadata.create_all(engine)
+
+def drop_user_all(engine: Engine):
+    UserBase.metadata.drop_all(engine)

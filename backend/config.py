@@ -6,6 +6,12 @@ load_dotenv()
 
 class Config(BaseModel):
 
+    CURRENT_ENV: str = Field(
+        os.getenv("CURRENT_ENV", ""),
+        description="Current environment for the application, e.g., 'dev', 'prod'.",
+        examples=["dev", "prod"]
+    )
+
     POSTGRES_USERNAME: str = Field(
         os.getenv("POSTGRES_USERNAME", "sdkim96"),
     )
@@ -28,6 +34,7 @@ class Config(BaseModel):
     
 
 CONFIG = Config(
+    CURRENT_ENV=os.getenv("CURRENT_ENV", ""),
     POSTGRES_USERNAME=os.getenv("POSTGRES_USERNAME", "sdkim96"),
     POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD", "**********"),
     POSTGRES_HOST=os.getenv("POSTGRES_HOST", "localhost"),

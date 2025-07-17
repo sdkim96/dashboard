@@ -14,7 +14,7 @@ class Agent(AgentBase):
         primary_key=True,
         doc="A unique identifier exposed to clients."
     )
-    author_id: Mapped[int] = mapped_column(
+    author_id: Mapped[str] = mapped_column(
         doc="The author of the agent. User table's id is used as a foreign key."
     )
     name: Mapped[str] = mapped_column(
@@ -48,24 +48,21 @@ class Agent(AgentBase):
 class AgentDetail(AgentBase):
     __tablename__ = 'agent_detail'
     
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        autoincrement=True,
-        doc="Unique identifier for the agent detail. It is automatically generated integer."
-    )
     agent_id: Mapped[str] = mapped_column(
+        primary_key=True,
         doc="Foreign key referencing the agent this detail belongs to. It is a foreign key to agent_master table."
+    )
+    version: Mapped[int] = mapped_column(
+        primary_key=True,
+        doc="Version of the agent detail. It is incremented when the agent detail is updated."
     )
     prompt: Mapped[str] = mapped_column(
         doc="The prompt used by the agent to generate responses. It can include placeholders for dynamic content."
     )
-    output_schema: Mapped[str] = mapped_column(
-        doc="Schema of the output produced by the agent. Marshaled as JSON string. It can be unmarshalled to a Python dictionary."
-    )
-    version: Mapped[int] = mapped_column(
-        default=1,
-        doc="Version of the agent detail. It is incremented when the agent detail is updated."
-    )
+    output_schema: Mapped[Optional[str]] = mapped_column(
+        doc="Schema of the output produced by the agent. Marshaled as JSON string. It can be unmarshalled to a Python dictionary." \
+        " If not provided, it will be treated as a raw string."
+    )    
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the agent detail was created."
     )
@@ -74,7 +71,7 @@ class AgentDetail(AgentBase):
     )
 
     def __repr__(self):
-        return f"<AgentDetail(id={self.id}, agent_id={self.agent_id})>"
+        return f"<AgentDetail(agent_id={self.agent_id}, version={self.version})>"
    
 
 class AgentTag(AgentBase):
@@ -87,6 +84,9 @@ class AgentTag(AgentBase):
     )
     agent_id: Mapped[str] = mapped_column(
         doc="Foreign key referencing the agent this tag belongs to.",
+    )
+    agent_version: Mapped[int] = mapped_column(
+        doc="Version of the agent this tag is associated with."
     )
     tag: Mapped[str] = mapped_column(
         doc="Tag associated with the agent, used for categorization or search.",
@@ -157,3 +157,6 @@ class AgentPrivacy(AgentBase):
 
 def create_agent_all(engine: Engine):
     AgentBase.metadata.create_all(engine)
+
+def drop_agent_all(engine: Engine):
+    AgentBase.metadata.drop_all(engine)

@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 import backend.constants as c
+import backend.config as cfg
 import backend.deps as dp
 
 from backend.apis import init_apis
@@ -38,6 +39,9 @@ async def read_root(
     )
 
 init_apis(app)
+if cfg.CONFIG.CURRENT_ENV == "local":
+    from backend.db import drop_all
+    drop_all()
 init_db()
 
 if __name__ == "__main__":

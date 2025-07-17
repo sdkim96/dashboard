@@ -86,3 +86,13 @@ def create_conversations_all(engine: Engine):
         engine (Engine): SQLAlchemy engine to connect to the database.
     """
     ConversationBase.metadata.create_all(bind=engine)
+
+
+def drop_conversations_all(engine: Engine):
+    """
+    Drops all tables related to conversations in the database.
+    
+    Args:
+        engine (Engine): SQLAlchemy engine to connect to the database.
+    """
+    ConversationBase.metadata.drop_all(bind=engine)

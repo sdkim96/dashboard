@@ -21,3 +21,8 @@ class User(BaseModel):
         description="Link to the user's icon or avatar, if available.",
         examples=["https://example.com/icon.png"]
     )
+    is_superuser: bool = Field(
+        False,
+        description="Flag indicating whether the user has superuser privileges.",
+        examples=[True, False]
+    )

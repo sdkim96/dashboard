@@ -4,6 +4,7 @@ from typing import Annotated, Generator
 from sqlalchemy.orm import Session
 
 import backend.db.engine as db
+import backend.models.user as user_mdl
 
 def generate_request_id() -> str:
     """
@@ -16,16 +17,22 @@ def generate_request_id() -> str:
     return str(uuid.uuid4())
 
 
-def get_current_username() -> str:
+def get_current_userprofile() -> user_mdl.User:
     """
-    Dependency to get the current username.
+    Dependency to get the current user profile.
 
     Returns:
-        str: The username of the current user.
-    
+        User: The user profile of the current user.
     """
-    # This is a placeholder. In a real application, you would retrieve the username from the request context.
-    return "current_user"
+    
+
+    #TODO: Implement logic to retrieve the current user profile.
+    return user_mdl.User(
+        user_id="current_user_id",
+        username="current_username",
+        email="current_user_email",
+        icon_link="https://example.com/current_user_icon.png"
+    )
 
 
 def get_db() -> Generator[Session, None, None]:

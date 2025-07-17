@@ -1,6 +1,22 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+class Attribute(BaseModel):
+    """
+    Represents an attribute for the output schema of an agent's response.
+    """
+    attribute: str = Field(
+        ...,
+        description="attribute for the output schema",
+        examples=["field1", "field2"]
+    )
+    type: str = Field(
+        ...,
+        description="type of the output schema, e.g., 'str', 'int', 'float', 'bool'.",
+        examples=['str', 'int', 'float', 'bool']
+    )
+
+
 class Agent(BaseModel):
     agent_id: str = Field(
         ...,
@@ -25,7 +41,12 @@ class Agent(BaseModel):
 
 
 class AgentPublish(BaseModel):
-    
+
+    agent_id: str | None = Field(
+        None,
+        description="Unique identifier of the agent. If not provided, a new ID will be generated.",
+        examples=["agent-123"]
+    )
     name: str = Field(
         ...,
         description="Name of the agent.",
@@ -51,13 +72,13 @@ class AgentPublish(BaseModel):
         description="Prompt or instructions for the agent.",
         examples=["This is an example prompt for the agent."]
     )
-    output_schema: dict = Field(
+    output_schema: List[Attribute] | None = Field(
         ...,
-        description="Output schema for the agent's responses.",
-        examples=[{
-            "go": "string",
-            "stop": "string",
-        }]
+        description="Output schema for the agent's responses. if not provided, it will be raw string",
+        examples=[[
+            Attribute(attribute="field1", type="str"),
+            Attribute(attribute="field2", type="int")
+        ]]
     )
     
 

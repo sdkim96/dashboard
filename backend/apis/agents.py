@@ -25,10 +25,10 @@ It supports pagination and searching by agent name or tags.
 """,
     response_model=mdl.GetAvailableAgentsResponse,
 )
-async def get_available_agents(
+def get_available_agents(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
     session: Annotated[Session, Depends(dp.get_db)],
-    username: Annotated[str, Depends(dp.get_current_username)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     params: mdl.GetAvailableAgentsRequest = Depends(),
 ) -> mdl.GetAvailableAgentsResponse:
     """
@@ -43,7 +43,7 @@ async def get_available_agents(
     agents, err = svc.get_available_agents(
         session=session,
         request_id=request_id,
-        username=username,
+        username=user_profile.username,
         offset=params.offset,
         limit=params.size,
         search=params.search,
@@ -71,8 +71,10 @@ async def get_available_agents(
     description="Retrieves details of a specific agent by its ID.",
     response_model=mdl.GetAgentResponse,
 )
-async def get_agent(
+def get_agent(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     agent_id: str,
 ) -> mdl.GetAgentResponse:
     """ Retrieves details of a specific agent by its ID.
@@ -83,6 +85,12 @@ async def get_agent(
     Returns:
         GetAgentResponse: Response model containing agent details.
     """
+    svc.get_detail_by_agent_id(
+        session=session,
+        request_id=request_id,
+        username=user_profile.username,
+        agent_id=agent_id,
+    )
     
     return mdl.GetAgentResponse(
         status="success",
@@ -136,18 +144,32 @@ async def subscribe_agent(
     response_model=mdl.PostPublishAgentResponse,
 )
 async def publish_agent(
+    session: Annotated[Session, Depends(dp.get_db)],
     request_id: Annotated[str, Depends(dp.generate_request_id)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     body: mdl.PostPublishAgentRequest,
 ) -> mdl.PostPublishAgentResponse:
     """
-    Subscribes to an agent by its ID.
-    
+    Publishes a new agent to the marketplace.
+
     Args:
         body (PostPublishAgentRequest): Request body containing agent details to publish.
         
     Returns:
-        PostPublishAgentResponse: Response model indicating the result of the subscription.
+        PostPublishAgentResponse: Response model indicating the result of the publication.
     """
+    publish = body.agent
+    ok, err = svc.publish_agent(
+        session=session,
+        publish=publish,
+        user_profile=user_profile,
+        request_id=request_id,
+    )
+    if err or not ok:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving agents: {err}"
+        )
     
     return mdl.PostPublishAgentResponse(
         status="success",

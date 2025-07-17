@@ -7,7 +7,7 @@ import backend._types as t
 import backend.constants as c
 
 from backend.models.user import User
-from backend.models.agent import Agent, AgentDetail, AgentPublish
+from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute
 from backend.models.llm import LLMModel
 from backend.models.conversations import ConversationMaster
 from backend.models.message import MessageRequest, MessageResponse, Content
@@ -76,12 +76,16 @@ class PostPublishAgentRequest(BaseRequest):
         ...,
         description="Details of the agent to be published.",
         examples=[AgentPublish(
+            agent_id=None,  # None for new agents, or provide existing agent ID for updates
             name="Example Agent", 
             icon_link=None,
             description="This is an example agent.",
             tags=["cool", "good"],
             prompt="This is an example prompt for the agent.",
-            output_schema={"go": "string", "stop": "string"}
+            output_schema=[Attribute(
+                attribute="field1",
+                type="str"
+            )]
         )]
     )
 
@@ -94,12 +98,16 @@ class PutModifyAgentRequest(BaseRequest):
         ...,
         description="Details of the agent to be published.",
         examples=[AgentPublish(
+            agent_id="agent-123",  # Existing agent ID for updates
             name="Example Agent", 
             icon_link=None,
             description="This is an example agent.",
             tags=["cool", "good"],
             prompt="This is an example prompt for the agent.",
-            output_schema={"go": "string", "stop": "string"}
+            output_schema=[Attribute(
+                attribute="field1",
+                type="str"
+            )]
         )]
     )
 
