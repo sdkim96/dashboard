@@ -1,3 +1,4 @@
+import datetime as dt
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
@@ -120,15 +121,15 @@ class AgentDetail(BaseModel):
         description="Prompt or instructions for the agent, if available.",
         examples=["This is an example prompt for the agent."]
     )
-    created_at: str = Field(
+    created_at: dt.datetime = Field(
         ...,
         description="Timestamp when the agent was created.",
-        examples=["2023-10-01T12:00:00Z"]
+        examples=[dt.datetime.now()]
     )
-    updated_at: str = Field(
+    updated_at: dt.datetime = Field(
         ...,
         description="Timestamp when the agent was last updated.",
-        examples=["2023-10-01T12:00:00Z"]
+        examples=[dt.datetime.now()]
     )
 
     @classmethod
@@ -141,7 +142,7 @@ class AgentDetail(BaseModel):
             icon_link=None,
             tags=[],
             prompt=None,
-            created_at="",
-            updated_at=""
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now()
         )
 

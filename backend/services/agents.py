@@ -103,25 +103,65 @@ def get_detail_by_agent_id(
     stmt = (
         select(
             Master.agent_id,
-            Master.author_id,
+            User.username.label("author_name"),
             Master.name,
             Master.description,
             Master.icon_link,
-            func.array_agg(Tag.tag).label("tags"),
+            Detail.prompt,
+            func.array_agg(Tag.tag).label("tags"),  # <-- 태그를 List로 집계
+            Master.created_at,
+            Master.updated_at
+        )
+        .join(
+            Detail,
+            Master.agent_id == Detail.agent_id
+        )
+        .outerjoin(
+            Tag,
+            Master.agent_id == Tag.agent_id
+        )
+        .join(
+            User,
+            User.user_id == Master.author_id
+        )
+        .where(
+            Master.agent_id == agent_id,
+            Master.is_active.is_(True),
+            Master.is_deleted.is_(False),
+            Detail.version == (
+                select(func.max(Detail.version))
+                .where(Detail.agent_id == Master.agent_id)
+                .correlate(Master)
+                .scalar_subquery()
+            )
+        )
+        .group_by(
+            Master.agent_id,
+            User.username,
+            Master.name,
+            Master.description,
+            Master.icon_link,
             Detail.prompt,
             Master.created_at,
             Master.updated_at
         )
-        .join(Master, Master.agent_id == Detail.agent_id)
-        .outerjoin(Tag, Master.agent_id == Tag.agent_id)
-        .outerjoin(Subcribe, Subcribe.agent_id == Master.agent_id)
-        .where(
-            Master.agent_id == agent_id,
-            Master.is_active.is_(True),
-            Master.is_deleted.is_(False)
-        )
-        
     )
+    lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
+    try:
+        result = session.execute(stmt).mappings().one_or_none()
+        if not result:
+            return a_mdl.AgentDetail.failed(), Exception("Agent not found")
+    except Exception as e:
+        lg.logger.error(f"Error retrieving agent details: {e}")
+        return a_mdl.AgentDetail.failed(), e    
+    
+    try:
+        validated = a_mdl.AgentDetail.model_validate(dict(result))
+        return validated, None
+    except Exception as e:
+        lg.logger.error(f"Error validating agent detail: {e}")
+        return a_mdl.AgentDetail.failed(), e
+    
 
 
 def publish_agent(

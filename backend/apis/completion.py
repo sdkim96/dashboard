@@ -2,6 +2,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+from sqlalchemy.orm import Session
+
+import backend.services.completion as svc
 import backend.constants as c
 import backend.deps as dp
 import backend.models.api as mdl
@@ -19,6 +22,7 @@ COMPLETION = APIRouter(
 )
 async def generate_completion(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
     body: mdl.PostGenerateCompletionRequest
 ) -> StreamingResponse:
     """
@@ -30,8 +34,17 @@ async def generate_completion(
     Returns:
         StreamingResponse: A streaming response containing the generated completion.
     """
-    # Placeholder for actual completion logic
-    async def generate():
-        yield "This is a placeholder for the generated completion."
-    
-    return StreamingResponse(generate(), media_type="text/plain")
+    func = svc.chat_completion
+    if body.action == "stop":
+        return StreamingResponse(
+            iter([]), 
+            media_type="text/event-stream"
+        )
+
+    if body.action == "next":
+        generator = func(
+            request_id=request_id,
+            body=body
+        )
+
+    return StreamingResponse(generator, media_type="text/event-stream")

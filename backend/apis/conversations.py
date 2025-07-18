@@ -2,6 +2,8 @@ import uuid
 from typing import Annotated
 from fastapi import APIRouter, Depends
 
+from sqlalchemy.orm import Session
+
 import backend.constants as c
 import backend.deps as dp
 import backend.models.api as mdl

@@ -85,28 +85,23 @@ def get_agent(
     Returns:
         GetAgentResponse: Response model containing agent details.
     """
-    svc.get_detail_by_agent_id(
+    agent_detail, err = svc.get_detail_by_agent_id(
         session=session,
         request_id=request_id,
         username=user_profile.username,
         agent_id=agent_id,
     )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving agent details."
+        )
     
     return mdl.GetAgentResponse(
         status="success",
         message="Agent details retrieved successfully.",
         request_id=request_id,
-        agent=mdl.AgentDetail(
-            agent_id=agent_id,
-            name="Example Agent",
-            icon_link=None,
-            tags=["cool", "good"],
-            description="This is an example agent used for demonstration purposes.",
-            author_name="Author Name",
-            prompt="This is an example prompt for the agent.",
-            created_at="2023-10-01T12:00:00Z",
-            updated_at="2023-10-01T12:00:00Z"
-        )
+        agent=agent_detail
     )
 
 @AGENTS.post(

@@ -1,4 +1,5 @@
 import uuid
+import datetime as dt
 from typing import List
 
 from pydantic import BaseModel, Field
@@ -163,7 +164,8 @@ class GetMeResponse(BaseResponse):
             user_id=str(uuid.uuid4()),
             username="example_user",
             email="ss@gamil.com",
-            icon_link="https://example.com/icon.png"
+            icon_link="https://example.com/icon.png",
+            is_superuser=False,
         )]
     )
     agents: List[Agent] = Field(
@@ -280,8 +282,8 @@ class GetAgentResponse(BaseResponse):
             description="This is an example agent.",
             tags=["cool", "good"],
             prompt="This is an example prompt for the agent.",
-            created_at="2023-10-01T12:00:00Z",
-            updated_at="2023-10-01T12:00:00Z"
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now(),
         )]
     )
 
