@@ -6,8 +6,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import Session
 
-import backend.models.agent as a_mdl
-import backend.models.user as u_mdl
+import backend.models as mdl
 
 import backend.db.agent_tables as tbl
 import backend.db.user_tables as user_tbl
@@ -21,7 +20,7 @@ def get_available_agents(
     offset: int,
     limit: int,
     search: Optional[str] = None,
-) -> Tuple[List[a_mdl.Agent], Exception | None]:
+) -> Tuple[List[mdl.Agent], Exception | None]:
     
     lg.logger.info(
         f"Request ID: {request_id}, Username: {username}, "
@@ -67,7 +66,7 @@ def get_available_agents(
         return [], e
 
     agents = [
-        a_mdl.Agent(
+        mdl.Agent(
             agent_id=row.agent_id,
             name=row.name,
             icon_link=row.icon_link,
@@ -85,7 +84,7 @@ def get_detail_by_agent_id(
     request_id: str,
     username: str,
     agent_id: str,
-) -> Tuple[a_mdl.AgentDetail, Exception | None]:
+) -> Tuple[mdl.AgentDetail, Exception | None]:
     
     lg.logger.info(
         f"Request ID: {request_id}, Username: {username}, "
@@ -150,24 +149,24 @@ def get_detail_by_agent_id(
     try:
         result = session.execute(stmt).mappings().one_or_none()
         if not result:
-            return a_mdl.AgentDetail.failed(), Exception("Agent not found")
+            return mdl.AgentDetail.failed(), Exception("Agent not found")
     except Exception as e:
         lg.logger.error(f"Error retrieving agent details: {e}")
-        return a_mdl.AgentDetail.failed(), e    
+        return mdl.AgentDetail.failed(), e    
     
     try:
-        validated = a_mdl.AgentDetail.model_validate(dict(result))
+        validated = mdl.AgentDetail.model_validate(dict(result))
         return validated, None
     except Exception as e:
         lg.logger.error(f"Error validating agent detail: {e}")
-        return a_mdl.AgentDetail.failed(), e
+        return mdl.AgentDetail.failed(), e
     
 
 
 def publish_agent(
     session: Session,
-    publish: a_mdl.AgentPublish,
-    user_profile: u_mdl.User,
+    publish: mdl.AgentPublish,
+    user_profile: mdl.User,
     request_id: str,
 ) -> Tuple[bool, Exception | None]:
     """ Publishes a new agent to the database.

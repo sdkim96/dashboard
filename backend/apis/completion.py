@@ -23,6 +23,7 @@ COMPLETION = APIRouter(
 async def generate_completion(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
     session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     body: mdl.PostGenerateCompletionRequest
 ) -> StreamingResponse:
     """
@@ -43,7 +44,9 @@ async def generate_completion(
 
     if body.action == "next":
         generator = func(
+            session=session,
             request_id=request_id,
+            user_profile=user_profile,
             body=body
         )
 

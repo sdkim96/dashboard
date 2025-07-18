@@ -1,3 +1,4 @@
+import datetime as dt
 import uuid
 from typing import Annotated
 from fastapi import APIRouter, Depends
@@ -62,16 +63,18 @@ def get_conversation(
             updated_at="2023-10-01T12:00:00Z"
         ),
         messages=[
-            mdl.MessageResponse(
+            mdl.Message(
                 message_id=str(uuid.uuid4()),
                 content=mdl.Content(
                     type="text",
                     parts=["This is a message in the conversation."]
                 ),
                 role="user",
+                agent_id="default-agent-id",
+                model="default-model",
                 parent_message_id=None,
-                updated_at="2023-10-01T12:00:00Z",
-                created_at="2023-10-01T12:00:00Z"
+                updated_at=dt.datetime.now(),
+                created_at=dt.datetime.now()
             )
         ]
     )

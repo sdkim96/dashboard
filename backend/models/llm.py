@@ -26,3 +26,4 @@ class LLMModel(BaseModel):
         description="Link to the user's icon or avatar, if available.",
         examples=["https://example.com/icon.png"]
     )
+

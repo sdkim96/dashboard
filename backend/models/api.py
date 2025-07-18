@@ -11,7 +11,7 @@ from backend.models.user import User
 from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute
 from backend.models.llm import LLMModel
 from backend.models.conversations import ConversationMaster
-from backend.models.message import MessageRequest, MessageResponse, Content
+from backend.models.message import MessageRequest, Message, Content
 
 class BaseRequest(BaseModel):
     pass
@@ -222,7 +222,7 @@ class GetConversationResponse(BaseResponse):
             )
         ]
     )
-    messages: List[MessageResponse] = Field(
+    messages: List[Message] = Field(
         default_factory=list,
         description="List of messages in the conversation.",
     )

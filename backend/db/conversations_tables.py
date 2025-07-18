@@ -4,6 +4,8 @@ from typing import Optional
 from sqlalchemy import Engine
 from sqlalchemy.orm import mapped_column, DeclarativeBase, Mapped
 
+from backend.models.message import Content
+
 class ConversationBase(DeclarativeBase):
     pass
 
@@ -14,7 +16,7 @@ class Conversation(ConversationBase):
         primary_key=True,
         doc="A unique identifier exposed to clients."
     )
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[str] = mapped_column(
         doc="The user who initiated the conversation. User table's id is used as a foreign key."
     )
     title: Mapped[str] = mapped_column(
@@ -75,6 +77,7 @@ class Message(ConversationBase):
     
     def __repr__(self):
         return f"<Message(id={self.message_id}, conversation_id={self.conversation_id})>"
+    
     
 
 
