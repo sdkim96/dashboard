@@ -67,7 +67,7 @@ def get_history(
             parent_message_id=msg.parent_message_id,
             agent_id=msg.agent_id,
             role=msg.role,
-            content=mdl.Content.model_validate(msg.content),
+            content=mdl.Content.model_validate_json(msg.content),
             created_at=msg.created_at,
             updated_at=msg.updated_at,
             model=msg.model

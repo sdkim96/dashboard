@@ -2,7 +2,8 @@ from backend.models.agent import (
     Attribute, 
     Agent, 
     AgentDetail,
-    AgentPublish
+    AgentPublish,
+    AgentSpec
 )
 from backend.models.completion import (
     CompletionMessage

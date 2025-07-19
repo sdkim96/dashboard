@@ -107,7 +107,7 @@ def get_detail_by_agent_id(
             Master.description,
             Master.icon_link,
             Detail.prompt,
-            func.array_agg(Tag.tag).label("tags"),  # <-- 태그를 List로 집계
+            func.array_agg(Tag.tag).label("tags"),
             Master.created_at,
             Master.updated_at
         )

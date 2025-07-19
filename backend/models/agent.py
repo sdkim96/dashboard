@@ -1,6 +1,7 @@
 import datetime as dt
 from typing import List, Optional
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, Field, ConfigDict
 
 class Attribute(BaseModel):
     """
@@ -146,3 +147,43 @@ class AgentDetail(BaseModel):
             updated_at=dt.datetime.now()
         )
 
+
+class AgentSpec(BaseModel):
+    """
+    Represents the specification of an agent, including its details and output schema.
+    """
+    model_config= ConfigDict(from_attributes=True)
+    agent_id: str = Field(
+        ...,
+        description="Unique identifier of the agent.",
+        examples=["agent-123"]
+    )
+    version: int = Field(
+        ...,
+        description="Version of the agent specification.",
+        examples=[1]
+    )
+    prompt: str = Field(
+        ...,
+        description="Prompt or instructions for the agent.",
+        examples=["This is an example prompt for the agent."]
+    )
+    output_schema: List[Attribute] | None = Field(
+        default=None,
+        description="Output schema for the agent's responses.",
+        examples=[[
+            Attribute(attribute="field1", type="str"),
+            Attribute(attribute="field2", type="int")
+        ]]
+    )
+
+    
+
+    @classmethod
+    def failed(cls) -> "AgentSpec":
+        return cls(
+            agent_id="",
+            version=0,
+            prompt="",
+            output_schema=None
+        )

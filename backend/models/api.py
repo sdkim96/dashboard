@@ -137,6 +137,12 @@ class PostGenerateCompletionRequest(BaseRequest):
         description="ID of the agent to use for generating the completion.",
         examples=["agent-123"]
     )
+    agent_version: int = Field(
+        default=0,
+        ge=0,
+        description="Version of the agent to use for generating the completion.",
+        examples=[1]
+    )
     model: str = Field(
         ...,
         description="Model to be used for generating the completion.",
