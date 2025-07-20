@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
   IconButton,
   Text,
-  Textarea,
   VStack,
   HStack,
   Avatar,
@@ -21,12 +20,8 @@ import {
   Badge,
   useToast,
   Skeleton,
-  SkeletonText,
-  Alert,
-  AlertIcon,
 } from '@chakra-ui/react';
 import { 
-  HiMenu,
   HiPlus,
   HiChevronLeft,
   HiChevronRight,
@@ -43,26 +38,27 @@ import {
   getMeApiV1UserGet,
   type ConversationMaster,
   type MessageResponse,
-  type GetConversationsResponse,
-  type GetConversationResponse,
-  type GetMeResponse,
-  type Content,
   type LlmModel,
   type User,
   type Agent
 } from '../client';
 
-
+// 컴포넌트 import
+import ConversationWindow from './ConversationWindow';
 
 // 사이드바 컴포넌트 Props
 interface SidebarContentProps {
   conversations: ConversationMaster[];
   selectedConversationId: string | null;
   loading: boolean;
+  subscribedAgents: Agent[];
+  selectedAgent: Agent | null;
+  userInfo: User | null;
   onNewChat: () => void;
   onSelectConversation: (conversationId: string) => void;
   onEditConversation: (conversationId: string) => void;
   onDeleteConversation: (conversationId: string) => void;
+  onSelectAgent: (agent: Agent) => void;
 }
 
 const ChatView: React.FC = () => {
@@ -85,23 +81,16 @@ const ChatView: React.FC = () => {
 
   // Refs and hooks
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useBreakpointValue({ base: true, md: false });
   const toast = useToast();
 
   // Effects
   useEffect(() => {
-    // 초기 데이터 로드
     Promise.all([
       fetchUserInfo(),
       fetchConversations()
     ]);
   }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   useEffect(() => {
     if (selectedConversationId) {
@@ -110,10 +99,6 @@ const ChatView: React.FC = () => {
   }, [selectedConversationId]);
 
   // Utility functions
-  const scrollToBottom = (): void => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -131,7 +116,6 @@ const ChatView: React.FC = () => {
         
         if (response.data.llms) {
           setAvailableModels(response.data.llms);
-          // 첫 번째 모델을 기본 선택
           if (response.data.llms.length > 0) {
             setSelectedModel(response.data.llms[0]);
           }
@@ -139,7 +123,6 @@ const ChatView: React.FC = () => {
         
         if (response.data.agents) {
           setSubscribedAgents(response.data.agents);
-          // 첫 번째 에이전트를 기본 선택
           if (response.data.agents.length > 0) {
             setSelectedAgent(response.data.agents[0]);
           }
@@ -165,7 +148,6 @@ const ChatView: React.FC = () => {
       if (response.data && response.data.conversations) {
         setConversations(response.data.conversations);
         
-        // 첫 번째 대화를 자동 선택
         if (response.data.conversations.length > 0 && !selectedConversationId) {
           setSelectedConversationId(response.data.conversations[0].conversation_id);
         }
@@ -216,8 +198,6 @@ const ChatView: React.FC = () => {
 
     setSendingMessage(true);
     
-    // TODO: 실제 메시지 전송 API 호출
-    // 현재는 시뮬레이션
     const newUserMessage: MessageResponse = {
       message_id: `msg-${Date.now()}`,
       role: 'user',
@@ -234,7 +214,7 @@ const ChatView: React.FC = () => {
     setMessages(prev => [...prev, newUserMessage]);
     setMessage('');
 
-    // Simulate AI response with selected model and agent
+    // Simulate AI response
     setTimeout(() => {
       const aiResponse: MessageResponse = {
         message_id: `msg-${Date.now() + 1}`,
@@ -267,7 +247,6 @@ const ChatView: React.FC = () => {
   };
 
   const handleNewChat = (): void => {
-    // TODO: 새 채팅 생성 API 호출
     console.log('New chat');
   };
 
@@ -276,12 +255,10 @@ const ChatView: React.FC = () => {
   };
 
   const handleEditConversation = (conversationId: string): void => {
-    // TODO: 대화 편집 API 호출
     console.log('Edit conversation', conversationId);
   };
 
   const handleDeleteConversation = (conversationId: string): void => {
-    // TODO: 대화 삭제 API 호출
     console.log('Delete conversation', conversationId);
   };
 
@@ -291,6 +268,14 @@ const ChatView: React.FC = () => {
 
   const toggleSidebar = (): void => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  const handleSelectAgent = (agent: Agent): void => {
+    setSelectedAgent(agent);
+  };
+
+  const onSelectModel = (model: LlmModel): void => {
+    setSelectedModel(model);
   };
 
   // 현재 선택된 대화 찾기
@@ -303,10 +288,14 @@ const ChatView: React.FC = () => {
     conversations, 
     selectedConversationId,
     loading,
+    subscribedAgents,
+    selectedAgent,
+    userInfo,
     onNewChat, 
     onSelectConversation, 
     onEditConversation, 
-    onDeleteConversation 
+    onDeleteConversation,
+    onSelectAgent
   }) => (
     <VStack h="100%" spacing={0} align="stretch">
       {/* Header */}
@@ -325,7 +314,7 @@ const ChatView: React.FC = () => {
 
       {/* Conversations List */}
       <VStack flex={1} spacing={1} p={2} align="stretch" overflowY="auto">
-        {/* 구독한 에이전트들 표시 - 개선된 스타일 */}
+        {/* 구독한 에이전트들 표시 */}
         {subscribedAgents.length > 0 && (
           <Box mb={4}>
             <Text fontSize="xs" fontWeight="semibold" color="gray.600" mb={2} px={1}>
@@ -342,7 +331,7 @@ const ChatView: React.FC = () => {
                   borderColor={selectedAgent?.agent_id === agent.agent_id && selectedAgent?.agent_version === agent.agent_version ? "green.500" : "gray.200"}
                   cursor="pointer"
                   _hover={{ bg: "gray.50", borderColor: "green.300" }}
-                  onClick={() => setSelectedAgent(agent)}
+                  onClick={() => onSelectAgent(agent)}
                   w="100%"
                   transition="all 0.2s"
                 >
@@ -380,7 +369,6 @@ const ChatView: React.FC = () => {
           CONVERSATIONS
         </Text>
         {loading ? (
-          // 로딩 스켈레톤
           Array.from({ length: 5 }).map((_, index) => (
             <Box key={index} p={3} borderRadius="md">
               <VStack align="start" spacing={2}>
@@ -575,7 +563,7 @@ const ChatView: React.FC = () => {
                       transition="all 0.2s"
                       border={selectedAgent?.agent_id === agent.agent_id && selectedAgent?.agent_version === agent.agent_version ? "2px solid" : "none"}
                       borderColor="green.600"
-                      onClick={() => setSelectedAgent(agent)}
+                      onClick={() => handleSelectAgent(agent)}
                     />
                   </Tooltip>
                 ))}
@@ -609,16 +597,20 @@ const ChatView: React.FC = () => {
               conversations={conversations}
               selectedConversationId={selectedConversationId}
               loading={loading}
+              subscribedAgents={subscribedAgents}
+              selectedAgent={selectedAgent}
+              userInfo={userInfo}
               onNewChat={handleNewChat}
               onSelectConversation={handleSelectConversation}
               onEditConversation={handleEditConversation}
               onDeleteConversation={handleDeleteConversation}
+              onSelectAgent={handleSelectAgent}
             />
           )}
         </Box>
       )}
 
-      {/* Mobile Drawer - 크기 줄임 */}
+      {/* Mobile Drawer */}
       <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
         <DrawerOverlay />
         <DrawerContent>
@@ -631,224 +623,36 @@ const ChatView: React.FC = () => {
               conversations={conversations}
               selectedConversationId={selectedConversationId}
               loading={loading}
+              subscribedAgents={subscribedAgents}
+              selectedAgent={selectedAgent}
+              userInfo={userInfo}
               onNewChat={handleNewChat}
               onSelectConversation={handleSelectConversation}
               onEditConversation={handleEditConversation}
               onDeleteConversation={handleDeleteConversation}
+              onSelectAgent={handleSelectAgent}
             />
           </DrawerBody>
         </DrawerContent>
       </Drawer>
 
-      {/* Main Chat Area */}
-      <Flex flex={1} direction="column" maxW="100%">
-        {/* Header - 깔끔하게 정리 */}
-        <Flex
-          h="60px"
-          px={6}
-          align="center"
-          justify="space-between"
-          bg="white"
-          borderBottom="1px"
-          borderColor="gray.200"
-        >
-          {isMobile && (
-            <IconButton
-              icon={<HiMenu />}
-              variant="ghost"
-              onClick={onOpen}
-              aria-label="Open Menu"
-            />
-          )}
-          
-          <Text fontSize="lg" fontWeight="semibold" flex={1} textAlign={isMobile ? "center" : "left"}>
-            {selectedConversation?.title || 'Select a conversation'}
-          </Text>
-          
-          {/* 현재 선택된 설정만 간단히 표시 */}
-          <HStack spacing={2}>
-            {selectedAgent && (
-              <Badge size="sm" colorScheme="green" variant="outline">
-                {selectedAgent.name}
-              </Badge>
-            )}
-            {selectedModel && (
-              <Badge size="sm" colorScheme="blue" variant="outline">
-                {selectedModel.deployment_id}
-              </Badge>
-            )}
-          </HStack>
-        </Flex>
-
-        {/* Messages Area - 개선된 메시지 스타일 */}
-        <Box flex={1} overflowY="auto" bg="white">
-          {messagesLoading ? (
-            <VStack spacing={6} align="stretch" maxW="3xl" mx="auto" py={6}>
-              {Array.from({ length: 3 }).map((_, index) => (
-                <Box key={index} px={6} py={4}>
-                  <HStack align="start" spacing={4}>
-                    <Skeleton width="32px" height="32px" borderRadius="full" />
-                    <VStack align="start" flex={1} spacing={2}>
-                      <Skeleton height="16px" width="80px" />
-                      <SkeletonText noOfLines={2} spacing="2" />
-                    </VStack>
-                  </HStack>
-                </Box>
-              ))}
-            </VStack>
-          ) : !selectedConversationId ? (
-            <Flex align="center" justify="center" h="100%">
-              <VStack spacing={3}>
-                <HiChat size={48} color="gray.300" />
-                <Text color="gray.500">Select a conversation to start chatting</Text>
-              </VStack>
-            </Flex>
-          ) : messages.length === 0 ? (
-            <Flex align="center" justify="center" h="100%">
-              <VStack spacing={3}>
-                <Text fontSize="lg" color="gray.600">Start a new conversation</Text>
-                <Text fontSize="sm" color="gray.500">Send a message to begin</Text>
-              </VStack>
-            </Flex>
-          ) : (
-            <VStack spacing={0} align="stretch" maxW="3xl" mx="auto" py={6}>
-              {messages.map((msg: MessageResponse) => (
-                <Box key={msg.message_id} px={6} py={4}>
-                  <Flex 
-                    direction="row"
-                    align="start" 
-                    spacing={4}
-                    gap={4}
-                    justify="flex-start"
-                  >
-                    <Avatar
-                      size="sm"
-                      name={msg.role === 'user' ? 'User' : 'Assistant'}
-                      src={msg.role === 'assistant' && msg.llm?.icon_link ? msg.llm.icon_link : undefined}
-                      bg={msg.role === 'user' ? 'blue.500' : 'green.500'}
-                      color="white"
-                    />
-                    
-                    <VStack align="start" flex={1} spacing={2} maxW="80%">
-                      <HStack spacing={2}>
-                        <Text fontSize="sm" fontWeight="semibold" color="gray.600">
-                          {msg.role === 'user' ? 'You' : 'Assistant'}
-                        </Text>
-                        {msg.llm && (
-                          <Badge size="xs" colorScheme="green" variant="subtle">
-                            {msg.llm.deployment_id}
-                          </Badge>
-                        )}
-                      </HStack>
-                      <Box
-                        bg={msg.role === 'user' ? 'blue.500' : 'gray.100'}
-                        color={msg.role === 'user' ? 'white' : 'gray.800'}
-                        px={4}
-                        py={3}
-                        borderRadius="lg"
-                        maxW="100%"
-                        wordBreak="break-word"
-                      >
-                        <Text fontSize="md" lineHeight="1.6" whiteSpace="pre-wrap">
-                          {msg.content.parts?.join('') || ''}
-                        </Text>
-                      </Box>
-                    </VStack>
-                  </Flex>
-                </Box>
-              ))}
-              
-              {/* 개선된 타이핑 인디케이터 */}
-              {sendingMessage && (
-                <Box px={6} py={4}>
-                  <Flex direction="row" align="start" spacing={4} gap={4}>
-                    <Avatar size="sm" bg="green.500" color="white" />
-                    <VStack align="start" flex={1} spacing={2} maxW="80%">
-                      <Text fontSize="sm" fontWeight="semibold" color="gray.600">
-                        Assistant
-                      </Text>
-                      <Box bg="gray.100" px={4} py={3} borderRadius="lg">
-                        <HStack spacing={1}>
-                          <Box 
-                            w={2} 
-                            h={2} 
-                            bg="gray.400" 
-                            borderRadius="full" 
-                            
-                          />
-                          <Box 
-                            w={2} 
-                            h={2} 
-                            bg="gray.400" 
-                            borderRadius="full" 
-                            
-                          />
-                          <Box 
-                            w={2} 
-                            h={2} 
-                            bg="gray.400" 
-                            borderRadius="full" 
-                            
-                          />
-                        </HStack>
-                      </Box>
-                    </VStack>
-                  </Flex>
-                </Box>
-              )}
-              <div ref={messagesEndRef} />
-            </VStack>
-          )}
-        </Box>
-
-        {/* Input Area */}
-        {selectedConversationId && (
-          <Box bg="white" borderTop="1px" borderColor="gray.200" p={4}>
-            <Box maxW="3xl" mx="auto">
-              <HStack spacing={3}>
-                <Box flex={1} position="relative">
-                  <Textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={handleMessageChange}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
-                    resize="none"
-                    minH="44px"
-                    maxH="200px"
-                    border="1px"
-                    borderColor="gray.300"
-                    borderRadius="lg"
-                    _focus={{
-                      borderColor: "blue.500",
-                      boxShadow: "0 0 0 1px blue.500"
-                    }}
-                    pr="50px"
-                    isDisabled={sendingMessage}
-                  />
-                  <IconButton
-                    icon={<Text fontSize="lg">→</Text>}
-                    size="sm"
-                    position="absolute"
-                    right="8px"
-                    bottom="8px"
-                    colorScheme="blue"
-                    borderRadius="md"
-                    isDisabled={!message.trim() || sendingMessage}
-                    isLoading={sendingMessage}
-                    onClick={handleSendMessage}
-                    aria-label="Send Message"
-                  />
-                </Box>
-              </HStack>
-              
-              <Text fontSize="xs" color="gray.500" textAlign="center" mt={2}>
-                Press Enter to send, Shift+Enter for new line
-              </Text>
-            </Box>
-          </Box>
-        )}
-      </Flex>
+      {/* Main Chat Area - ConversationWindow 컴포넌트 사용 */}
+      <ConversationWindow
+        availableModels={availableModels}
+        selectedConversation={selectedConversation}
+        selectedConversationId={selectedConversationId}
+        messages={messages}
+        message={message}
+        messagesLoading={messagesLoading}
+        sendingMessage={sendingMessage}
+        selectedAgent={selectedAgent}
+        selectedModel={selectedModel}
+        onOpenSidebar={onOpen}
+        onMessageChange={handleMessageChange}
+        onSendMessage={handleSendMessage}
+        onKeyPress={handleKeyPress}
+        onSelectModel={onSelectModel}
+      />
     </Flex>
   );
 };
