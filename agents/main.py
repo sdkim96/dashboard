@@ -2,12 +2,10 @@ import os
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict, create_model
+from anthropic import Anthropic
+from openai import OpenAI
 
-from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from agents.provider import Chat
 
 class Attribute(BaseModel):
     """
@@ -24,40 +22,27 @@ class Attribute(BaseModel):
         examples=['str', 'int', 'float', 'bool']
     )
 
-# user= create_model(
-#     "User",
-#     user_id=(str, ...),
-#     username=(str, ...),
-#     email=(str, ...),
-# )
-
-
 
 class SimpleAgent:
     def __init__(
         self, 
         agent_id: str,
-        version: str,
-        messages: List[dict],
+        agent_version: int,
         issuer: str,
-        model_name: str,
-        deploy_version: str,
-        output_schema: List[Attribute] | None = None
+        deployment_id: str,
     ):
         self.agent_id = agent_id
-        self.version = version
+        self.version = agent_version
         
         self.issuer = issuer
-        self.model_name = model_name
-        self.deploy_version = deploy_version
-        self.output_schema = output_schema
-        
-        if self.output_schema:
-            parser = PydanticOutputParser(pydantic_object=self._to_pydantic_model())
+        self.deployment_id = deployment_id
 
-        self.model: BaseChatModel = self._choose_model(issuer, deploy_version)
-        self.prompt = ChatPromptTemplate(messages=messages)
-        self.output_parser = parser if self.output_schema else None
+    @property
+    def model(self) -> OpenAI | Anthropic:
+        """
+        Returns the model used by the agent.
+        """
+        return self._choose_model(self.issuer, self.deployment_id)
 
     @property
     def key_of_env(self) -> str:
@@ -71,18 +56,38 @@ class SimpleAgent:
 
     async def astream(
         self,        
+        messages: List[dict],
+        output_schema: List[dict[str, str]] | None = None
     ):
-        runnable = self.prompt | self.model 
-        if self.output_parser:
-            runnable = runnable | self.output_parser
+        
+        """
+        Asynchronously streams the response from the agent based on the provided messages.
 
-        runnable.astream(
-            {"user_input": "Your input here"},)
+        Args:
+            messages (List[dict]): The messages to send to the agent.
+            output_schema (List[dict[str, str]] | None): The schema for the expected
+                output. If None, the output will not be parsed.
+        Yields:
+            str: The response from the agent.
+        """
+        client = self.model
+        chat = Chat(client)
 
-    def _to_pydantic_model(self) -> type[BaseModel]:
+        response_fmt: type[BaseModel] | None = None
+        if output_schema:
+            attributes = [Attribute.model_validate(s) for s in output_schema]
+            response_fmt = self._to_pydantic_model(attributes)
+
+        yield await chat.ainvoke(
+            deployment_id=self.deployment_id,
+            messages=messages,
+            output_schema=response_fmt
+        )
+
+    def _to_pydantic_model(self, output_schema: List[Attribute]) -> type[BaseModel]:
 
         kwargs = {}
-        for attr in self.output_schema:
+        for attr in output_schema:
             kwargs[attr.attribute] = (eval(attr.type), Field(
                 ...,
                 description=f"{attr.attribute} of the output schema",
@@ -90,32 +95,30 @@ class SimpleAgent:
             ))
 
         Model = create_model(
-            f"{self.model_name}",
+            f"OutputSchema",
+            __base__=BaseModel,
             **kwargs,
         )
         return Model
 
 
-    def _build_prompt(self, user_input: str) -> str:
-        pass
     def _choose_model(
         self, 
         issuer: str, 
         deploy_version: str
-    ) -> BaseChatModel:
+    ):
+
         api_key = os.getenv(self.key_of_env)
         if not api_key:
             raise ValueError(f"API key for {issuer} is not set in environment variables.")
 
         match issuer:
             case "openai":
-                return ChatOpenAI(
-                    model=f"gpt-3.5-turbo-{deploy_version}",
+                return OpenAI(
                     api_key=api_key
                 )
             case "anthropic":
-                return ChatAnthropic(
-                    model=f"claude-{deploy_version}",
+                return Anthropic(
                     api_key=api_key
                 )
             case _:

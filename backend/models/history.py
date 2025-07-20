@@ -1,3 +1,4 @@
+from typing import List
 from pydantic import BaseModel, Field
 from backend.models.message import Message
 
@@ -48,3 +49,42 @@ class History(BaseModel):
             summary="",
             messages=[]
         )
+    
+
+    def marshal_to_messagelike(self, user_message: Message) -> List[dict]:
+        """
+        Marshals the history messages into a list of dictionaries suitable for
+        use with a message-like interface.
+
+        Message-Like is a message form that many issuers choose to interact.
+        The format is:
+        ```json
+        {
+            "role": "user" | "assistant",
+            "content": "The content of the message"
+        }
+        ```
+        
+        Args:
+            user_message (Message): The user message to be added to the history.
+        
+        Returns:
+            List[dict]: A list of dictionaries representing the messages.
+        """
+        marshalled_messages = []
+        for msg in self.messages:
+            marshalled = {}
+            role = msg.role
+            content = msg.content.parts[0]
+            
+            marshalled["role"] = role
+            marshalled["content"] = content
+            marshalled_messages.append(marshalled)
+
+        if user_message:
+            marshalled = {}
+            marshalled["role"] = user_message.role
+            marshalled["content"] = user_message.content.parts[0]
+            marshalled_messages.append(marshalled)
+
+        return marshalled_messages

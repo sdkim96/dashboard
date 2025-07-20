@@ -65,8 +65,8 @@ class Message(ConversationBase):
     content: Mapped[str] = mapped_column(
         doc="The content of the message in the conversation."
     )
-    model: Mapped[str] = mapped_column(
-        doc="The model used to generate the message. It can be a specific model name"
+    llm: Mapped[str] = mapped_column(
+        doc="The llm_model used to generate the message. It can be a specific model name"
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the message was created.",

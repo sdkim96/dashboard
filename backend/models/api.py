@@ -9,7 +9,7 @@ import backend.constants as c
 
 from backend.models.user import User
 from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute
-from backend.models.llm import LLMModel
+from backend.models.llm import LLMModel, LLMModelRequest
 from backend.models.conversations import ConversationMaster
 from backend.models.message import MessageRequest, Message, Content
 
@@ -143,10 +143,13 @@ class PostGenerateCompletionRequest(BaseRequest):
         description="Version of the agent to use for generating the completion.",
         examples=[1]
     )
-    model: str = Field(
+    llm: LLMModelRequest = Field(
         ...,
-        description="Model to be used for generating the completion.",
-        examples=["gpt-3.5-turbo"]
+        description="Model Deployment ID to be used for generating the completion.",
+        examples=[LLMModelRequest(
+            issuer="openai",
+            deployment_id="deployment-123",
+        )]
     )
     messages: List[MessageRequest] = Field(
         ...,
@@ -187,7 +190,11 @@ class GetMeResponse(BaseResponse):
         description="List of model IDs that the user has access to.",
         examples=[[
             LLMModel(
-                model_id="model-123", name="Example Model", description="An example LLM model.", deployment_id="deployment-123", icon_link=None
+                issuer="openai",
+                deployment_id="deployment-123",
+                name="Example Model", 
+                description="An example LLM model.", 
+                icon_link=None
             )
         ]]
     )

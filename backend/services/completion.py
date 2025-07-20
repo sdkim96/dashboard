@@ -1,7 +1,8 @@
-import datetime as dt
 import uuid
+from typing import cast
 
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 import backend._types as t
 import backend.models as mdl
@@ -79,12 +80,6 @@ async def chat_completion(
         )
         return
     
-    yield await chunk(
-        event="data", 
-        data={"message": "😎 Checked your selected agent's specification..."}, 
-        delay=0.01
-    )
-    
     user_message_id = str(uuid.uuid4())
     assaistant_message_id = str(uuid.uuid4())
     messages = []
@@ -94,7 +89,7 @@ async def chat_completion(
         parent_message_id=body.parent_message_id,
         agent_id=None,
         content=body.messages[0].content,
-        model=body.model
+        llm=body.llm.deployment_id
     )
     messages.append(user)
     
@@ -103,13 +98,47 @@ async def chat_completion(
         data={"message": "🧐 Analyze what you said..."}, 
         delay=0.01
     )
+    
+    simple_agent = SimpleAgent(
+        agent_id=body.agent_id,
+        agent_version=body.agent_version,
+        issuer=body.llm.issuer,
+        deployment_id=body.llm.deployment_id,
+    )
+    parts = ""
+    
+    async for c in simple_agent.astream(
+        messages=history.marshal_to_messagelike(
+            user_message=user
+        ),
+        output_schema=[
+            s.model_dump(mode="json") 
+            for s in agent_spec.output_schema
+        ] if agent_spec.output_schema else None,
+    ):
+        if agent_spec.output_schema:
+            c = cast(BaseModel, c)
+            part = c.model_dump_json()
+            yield await chunk(
+                event="data", 
+                data={"message": f"{part}"},
+                delay=0.01
+            )
+            parts += part
+        else:
+            yield await chunk(
+                event="data", 
+                data={"message": f"{c}"},
+                delay=0.01
+            )
+            parts += c
 
     assistant = mdl.Message.assistant_message(
         message_id=assaistant_message_id,
         parent_message_id=user_message_id,
         agent_id=body.agent_id,
-        content=mdl.Content(type='text', parts=["Generating response..."]),
-        model=body.model
+        content=mdl.Content(type='text', parts=[parts]),
+        llm=body.llm.deployment_id
     )
     messages.append(assistant)
     

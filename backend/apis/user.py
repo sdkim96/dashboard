@@ -36,7 +36,8 @@ def get_me(
             user_id="user-123",
             username="example_user",
             email="",
-            icon_link="https://example.com/icon.png"
+            icon_link="https://example.com/icon.png",
+            is_superuser=False,
         ),
         agents=[
             mdl.Agent(
@@ -45,7 +46,11 @@ def get_me(
         ],
         models=[
             mdl.LLMModel(
-                model_id="model-123", name="Example Model", description="An example LLM model.", deployment_id="deployment-123", icon_link=None
+                issuer="openai",
+                name="Example Model",
+                description="An example LLM model.",
+                deployment_id="deployment-123",
+                icon_link=None
             )
         ]
     )

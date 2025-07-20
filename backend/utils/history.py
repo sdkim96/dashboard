@@ -10,7 +10,8 @@ def get_history(
     session: Session,
     user_id: str,
     conversation_id: str,
-    request_id: str 
+    request_id: str,
+    limit: int = 10,
 ) -> Tuple[mdl.History, Exception | None]:
     """
     Returns a history object.
@@ -34,7 +35,7 @@ def get_history(
             Message.message_id,
             Message.content,
             Message.role,
-            Message.model,
+            Message.llm,
             Message.created_at,
             Message.updated_at
         )
@@ -45,6 +46,7 @@ def get_history(
         .where(Conversation.user_id == user_id)
         .where(Conversation.conversation_id == conversation_id)
         .order_by(Conversation.created_at.desc(), Message.created_at.desc())
+        .limit(limit)
     )
     try:
         results = session.execute(stmt).mappings().all()
@@ -70,7 +72,7 @@ def get_history(
             content=mdl.Content.model_validate_json(msg.content),
             created_at=msg.created_at,
             updated_at=msg.updated_at,
-            model=msg.model
+            llm=msg.llm 
         ) for msg in results
     ]
 
@@ -124,7 +126,7 @@ def set_history(
             agent_id=new_message.agent_id,
             role=new_message.role,
             content=new_message.content.model_dump_json(),
-            model=new_message.model,
+            llm=new_message.llm,
             created_at=new_message.created_at,
             updated_at=new_message.updated_at,
         )

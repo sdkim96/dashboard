@@ -53,9 +53,9 @@ class Message(BaseModel):
         description="Content of the message.",
         examples=[Content(type='text', parts=["Hello, how can I help you?"])]
     )
-    model: str = Field(
+    llm: str = Field(
         ...,
-        description="The model used to generate the message.",
+        description="The deployment id of model used to generate the message.",
         examples=["gpt-3.5-turbo"]
     )
     created_at: dt.datetime = Field(
@@ -76,7 +76,7 @@ class Message(BaseModel):
         parent_message_id: str | None,
         agent_id: str | None,
         content: Content, 
-        model: str, 
+        llm: str, 
     ) -> 'Message':
         """
         Create a user message instance.
@@ -87,7 +87,7 @@ class Message(BaseModel):
             agent_id=agent_id,
             role='user',
             content=content,
-            model=model,
+            llm=llm,
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now()
         )
@@ -99,7 +99,7 @@ class Message(BaseModel):
         parent_message_id: str | None,
         agent_id: str | None,
         content: Content, 
-        model: str, 
+        llm: str, 
     ) -> 'Message':
         """
         Create an assistant message instance.
@@ -110,7 +110,7 @@ class Message(BaseModel):
             agent_id=agent_id,
             role='assistant',
             content=content,
-            model=model,
+            llm=llm,
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now()
         )
