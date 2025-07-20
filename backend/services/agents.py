@@ -16,20 +16,21 @@ import backend.utils.logger as lg
 def get_available_agents(
     session: Session,
     request_id: str,
-    username: str,
+    user: mdl.User,
     offset: int,
     limit: int,
     search: Optional[str] = None,
-) -> Tuple[List[mdl.Agent], Exception | None]:
+) -> Tuple[List[mdl.AgentMarketPlace], Exception | None]:
     
     lg.logger.info(
-        f"Request ID: {request_id}, Username: {username}, "
+        f"Request ID: {request_id}, Username: {user.username}, "
         f"Offset: {offset}, Limit: {limit}, Search: {search}"
     )
     
     Master = tbl.Agent
     Detail = tbl.AgentDetail
     Tag = tbl.AgentTag
+    Subscribe = tbl.AgentSubscriber
 
     tag_subq = (
         select(
@@ -46,11 +47,17 @@ def get_available_agents(
             Detail.version,
             Master.name,
             Master.icon_link,
-            tag_subq.c.tags
+            tag_subq.c.tags,
+            func.coalesce(Subscribe.user_id.is_not(None), False).label("subscribed")
         )
         .join(
             Detail,
             Master.agent_id == Detail.agent_id
+        )
+        .outerjoin(
+            Subscribe,
+            (Subscribe.agent_id == Master.agent_id) &
+            (Subscribe.agent_version == Detail.version)
         )
         .outerjoin(tag_subq, Master.agent_id == tag_subq.c.agent_id)
         .where(Master.is_active.is_(True), Master.is_deleted.is_(False))
@@ -65,19 +72,20 @@ def get_available_agents(
         )
 
     stmt = stmt.order_by(Master.created_at.desc()).offset(offset).limit(limit)
-
+    lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
     try:
         results = session.execute(stmt).mappings().all()
     except Exception as e:
         return [], e
 
     agents = [
-        mdl.Agent(
+        mdl.AgentMarketPlace(
             agent_id=row.agent_id,
             agent_version=row.version,
             name=row.name,
             icon_link=row.icon_link,
-            tags=row.tags or []
+            tags=row.tags or [],
+            subscribed=row.subscribed
         )
         for row in results
     ]
@@ -91,6 +99,7 @@ def get_detail_by_agent_id(
     request_id: str,
     username: str,
     agent_id: str,
+    agent_version: int
 ) -> Tuple[mdl.AgentDetail, Exception | None]:
     
     lg.logger.info(
@@ -135,12 +144,7 @@ def get_detail_by_agent_id(
             Master.agent_id == agent_id,
             Master.is_active.is_(True),
             Master.is_deleted.is_(False),
-            Detail.version == (
-                select(func.max(Detail.version))
-                .where(Detail.agent_id == Master.agent_id)
-                .correlate(Master)
-                .scalar_subquery()
-            )
+            Detail.version == agent_version,
         )
         .group_by(
             Master.agent_id,
@@ -169,7 +173,43 @@ def get_detail_by_agent_id(
     except Exception as e:
         lg.logger.error(f"Error validating agent detail: {e}")
         return mdl.AgentDetail.failed(), e
+
+
+def subscribe_agent(
+    session: Session,
+    request_id: str,
+    user: mdl.User,
+    agent_id: str,
+    agent_version: int
+) -> Tuple[bool, Exception | None]:
+    """ Subscribes a user to an agent.
     
+    Args:
+        session (Session): SQLAlchemy session object.
+        request_id (str): Unique request ID for tracking.
+        user (mdl.User): Current user's profile.
+        agent_id (str): Unique identifier of the agent to subscribe to.
+        agent_version (int): Version of the agent to subscribe to.
+    
+    Returns:
+        out (Tuple[bool, Exception | None]): Returns True if successful, otherwise False and the exception
+    """
+    lg.logger.info(f"Request ID: {request_id}, User: {user.username}, Agent ID: {agent_id}, Version: {agent_version}")
+
+    subscription = tbl.AgentSubscriber(
+        user_id=user.user_id,
+        agent_id=agent_id,
+        agent_version=agent_version,
+        created_at=dt.datetime.now(),
+    )
+    try:
+        session.add(subscription)
+        session.commit()
+        return True, None
+    except Exception as e:
+        lg.logger.error(f"Error subscribing to agent: {e}")
+        session.rollback()
+        return False, e
 
 
 def publish_agent(

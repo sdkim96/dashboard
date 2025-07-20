@@ -8,7 +8,7 @@ import backend._types as t
 import backend.constants as c
 
 from backend.models.user import User
-from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute
+from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute, AgentMarketPlace
 from backend.models.llm import LLMModel, LLMModelRequest
 from backend.models.conversations import ConversationMaster
 from backend.models.message import MessageRequest, Message, Content
@@ -249,16 +249,17 @@ class GetAvailableAgentsResponse(BaseResponse):
     """
     GET /api/v1/agents Response model
     """
-    agents: List[Agent] = Field(
+    agents: List[AgentMarketPlace] = Field(
         default_factory=list,
         description="List of available agents.",
         examples=[[
-            Agent(
+            AgentMarketPlace(
                 agent_id="agent-123", 
                 agent_version=1,
                 name="Example Agent", 
                 icon_link=None,
-                tags=["cool", "good"]
+                tags=["cool", "good"],
+                subscribed=True
             )
         ]]
     )
@@ -287,7 +288,7 @@ class GetAvailableAgentsResponse(BaseResponse):
 
 class GetAgentResponse(BaseResponse):
     """
-    GET /api/v1/agent Response model
+    GET /api/v1/agents/{agent_id} Response model
     """
     agent: AgentDetail = Field(
         ...,

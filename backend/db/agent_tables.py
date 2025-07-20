@@ -104,23 +104,23 @@ class AgentTag(AgentBase):
 class AgentSubscriber(AgentBase):
     __tablename__ = 'agent_subscriber'
     
-    id: Mapped[int] = mapped_column(
+    user_id: Mapped[str] = mapped_column(
         primary_key=True,
-        autoincrement=True,
-        doc="Unique identifier for the agent subscriber."
-    )
-    user_id: Mapped[int] = mapped_column(
         doc="Foreign key referencing the user who subscribed to the agent.",
     )
     agent_id: Mapped[str] = mapped_column(
+        primary_key=True,
         doc="Foreign key referencing the agent this subscriber belongs to.",
+    )
+    agent_version: Mapped[int] = mapped_column(
+        doc="Version of the agent this subscriber is subscribed to."
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the agent subscription was created."
     )
     
     def __repr__(self):
-        return f"<AgentSubscriber(id={self.id}, agent_id={self.agent_id}, user_id={self.user_id})>"
+        return f"<AgentSubscriber(agent_id={self.agent_id}, user_id={self.user_id})>"
 
 
 class AgentPrivacy(AgentBase):

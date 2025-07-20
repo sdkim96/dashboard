@@ -41,7 +41,11 @@ def get_me(
         ),
         agents=[
             mdl.Agent(
-                agent_id="agent-123", name="Example Agent", icon_link=None, tags=["cool", "good"]
+                agent_id="agent-123", 
+                name="Example Agent", 
+                icon_link=None, 
+                tags=["cool", "good"],
+                agent_version=1,
             )
         ],
         models=[

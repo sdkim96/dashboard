@@ -46,6 +46,37 @@ class Agent(BaseModel):
         examples=["https://example.com/icon.png"]
     )
 
+class AgentMarketPlace(BaseModel):
+    agent_id: str = Field(
+        ...,
+        description="Unique identifier of the model.",
+        examples=["user-123"]
+    )
+    agent_version: int = Field(
+        ...,
+        description="Version of the agent.",
+        examples=[1]
+    )
+    name: str = Field(
+        ...,
+        description="Username of the user.",
+        examples=["example_user"]
+    )
+    tags: List[str] = Field(
+        default_factory=list,
+        description="List of tags associated with the agent.",
+        examples=[["tag1", "tag2"]]
+    )
+    icon_link: str | None = Field(
+        None,
+        description="Link to the user's icon or avatar, if available.",
+        examples=["https://example.com/icon.png"]
+    )
+    subscribed: bool = Field(
+        default=False,
+        description="Indicates whether the user is subscribed to this agent.",
+        examples=[True, False]
+    )
 
 class AgentPublish(BaseModel):
 

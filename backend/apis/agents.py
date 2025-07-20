@@ -43,7 +43,7 @@ def get_available_agents(
     agents, err = svc.get_available_agents(
         session=session,
         request_id=request_id,
-        username=user_profile.username,
+        user=user_profile,
         offset=params.offset,
         limit=params.size,
         search=params.search,
@@ -66,7 +66,7 @@ def get_available_agents(
     )
 
 @AGENTS.get(
-    path="/{agent_id}",
+    path="/{agent_id}/version/{agent_version}",
     summary="Get Agent Details",
     description="Retrieves details of a specific agent by its ID.",
     response_model=mdl.GetAgentResponse,
@@ -76,6 +76,7 @@ def get_agent(
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     agent_id: str,
+    agent_version: int
 ) -> mdl.GetAgentResponse:
     """ Retrieves details of a specific agent by its ID.
     
@@ -90,6 +91,7 @@ def get_agent(
         request_id=request_id,
         username=user_profile.username,
         agent_id=agent_id,
+        agent_version=agent_version
     )
     if err:
         raise HTTPException(
@@ -105,24 +107,41 @@ def get_agent(
     )
 
 @AGENTS.post(
-    path="/{agent_id}/subscribe",
+    path="/{agent_id}/version/{agent_version}/subscribe",
     summary="Subscribe to Agent",
     description="Subscribes to an agent by its ID.",
     response_model=mdl.PostSubscribeAgentResponse,
 )
 async def subscribe_agent(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     agent_id: str,
+    agent_version: int
 ) -> mdl.PostSubscribeAgentResponse:
     """
     Subscribes to an agent by its ID.
-    
+
     Args:
         agent_id (str): Unique identifier of the agent to subscribe to.
-        
+        agent_version (int): Version of the agent to subscribe to.
+
     Returns:
         PostSubscribeAgentResponse: Response model indicating the result of the subscription.
     """
+    
+    ok, err = svc.subscribe_agent(
+        session=session,
+        request_id=request_id,
+        user=user_profile,
+        agent_id=agent_id,
+        agent_version=agent_version
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving agents: {err}"
+        )
     
     return mdl.PostSubscribeAgentResponse(
         status="success",

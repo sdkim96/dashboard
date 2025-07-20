@@ -3,7 +3,8 @@ from backend.models.agent import (
     Agent, 
     AgentDetail,
     AgentPublish,
-    AgentSpec
+    AgentSpec,
+    AgentMarketPlace
 )
 from backend.models.completion import (
     CompletionMessage
