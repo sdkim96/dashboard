@@ -182,7 +182,11 @@ class GetMeResponse(BaseResponse):
         description="List of agent IDs that the user is subscribed to.",
         examples=[[
             Agent(
-                agent_id="agent-123", name="Example Agent", icon_link=None, tags=["cool", "good"]
+                agent_id="agent-123", 
+                agent_version=1,
+                name="Example Agent", 
+                icon_link=None, 
+                tags=["cool", "good"]
             )]]
     )
     models: List[LLMModel] = Field(
@@ -251,6 +255,7 @@ class GetAvailableAgentsResponse(BaseResponse):
         examples=[[
             Agent(
                 agent_id="agent-123", 
+                agent_version=1,
                 name="Example Agent", 
                 icon_link=None,
                 tags=["cool", "good"]
@@ -289,6 +294,7 @@ class GetAgentResponse(BaseResponse):
         description="Details of the requested agent.",
         examples=[AgentDetail(
             agent_id="agent-123", 
+            agent_version=1,
             name="Example Agent", 
             icon_link=None,
             author_name="Author Name",

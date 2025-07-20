@@ -28,6 +28,7 @@ def get_available_agents(
     )
     
     Master = tbl.Agent
+    Detail = tbl.AgentDetail
     Tag = tbl.AgentTag
 
     tag_subq = (
@@ -42,9 +43,14 @@ def get_available_agents(
     stmt = (
         select(
             Master.agent_id,
+            Detail.version,
             Master.name,
             Master.icon_link,
             tag_subq.c.tags
+        )
+        .join(
+            Detail,
+            Master.agent_id == Detail.agent_id
         )
         .outerjoin(tag_subq, Master.agent_id == tag_subq.c.agent_id)
         .where(Master.is_active.is_(True), Master.is_deleted.is_(False))
@@ -68,6 +74,7 @@ def get_available_agents(
     agents = [
         mdl.Agent(
             agent_id=row.agent_id,
+            agent_version=row.version,
             name=row.name,
             icon_link=row.icon_link,
             tags=row.tags or []
@@ -102,6 +109,7 @@ def get_detail_by_agent_id(
     stmt = (
         select(
             Master.agent_id,
+            Detail.version.label("agent_version"),
             User.username.label("author_name"),
             Master.name,
             Master.description,
@@ -136,6 +144,7 @@ def get_detail_by_agent_id(
         )
         .group_by(
             Master.agent_id,
+            Detail.version,
             User.username,
             Master.name,
             Master.description,

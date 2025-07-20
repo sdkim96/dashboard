@@ -25,6 +25,11 @@ class Agent(BaseModel):
         description="Unique identifier of the model.",
         examples=["user-123"]
     )
+    agent_version: int = Field(
+        ...,
+        description="Version of the agent.",
+        examples=[1]
+    )
     name: str = Field(
         ...,
         description="Username of the user.",
@@ -92,6 +97,11 @@ class AgentDetail(BaseModel):
         description="Unique identifier of the agent.",
         examples=["agent-123"]
     )
+    agent_version: int = Field(
+        ...,
+        description="Version of the agent.",
+        examples=[1]
+    )
     author_name: str | None = Field(
         ...,
         description="Name of the author of the agent.",
@@ -137,6 +147,7 @@ class AgentDetail(BaseModel):
     def failed(cls) -> "AgentDetail":
         return cls(
             agent_id="",
+            agent_version=0,
             author_name=None,
             name="",
             description="",
