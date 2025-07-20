@@ -21,7 +21,6 @@ import {
   Tooltip,
   Badge
 } from '@chakra-ui/react';
-// React Icons 사용 (더 안정적)
 import { 
   HiMenu,
   HiPlus,
@@ -120,7 +119,6 @@ const ChatInterface: React.FC = () => {
   };
 
   const handleNewChat = (): void => {
-    // 새 채팅 로직
     console.log('New chat');
   };
 
