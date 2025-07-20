@@ -111,7 +111,7 @@ class AgentPublish(BaseModel):
         examples=["This is an example prompt for the agent."]
     )
     output_schema: List[Attribute] | None = Field(
-        ...,
+        None,
         description="Output schema for the agent's responses. if not provided, it will be raw string",
         examples=[[
             Attribute(attribute="field1", type="str"),

@@ -11,7 +11,7 @@ from backend.models.user import User
 from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute, AgentMarketPlace
 from backend.models.llm import LLMModel, LLMModelRequest
 from backend.models.conversations import ConversationMaster
-from backend.models.message import MessageRequest, Message, Content
+from backend.models.message import MessageRequest, MessageResponse, Content
 
 class BaseRequest(BaseModel):
     pass
@@ -189,7 +189,7 @@ class GetMeResponse(BaseResponse):
                 tags=["cool", "good"]
             )]]
     )
-    models: List[LLMModel] = Field(
+    llms: List[LLMModel] = Field(
         default_factory=list,
         description="List of model IDs that the user has access to.",
         examples=[[
@@ -216,8 +216,8 @@ class GetConversationsResponse(BaseResponse):
                 conversation_id=str(uuid.uuid4()),
                 title="Cool Conversation",
                 icon="😎",
-                created_at="2023-10-01T12:00:00Z",
-                updated_at="2023-10-01T12:00:00Z"
+                created_at=dt.datetime.now(),
+                updated_at=dt.datetime.now()
             )
         ]]
     )
@@ -234,12 +234,13 @@ class GetConversationResponse(BaseResponse):
                 conversation_id=str(uuid.uuid4()),
                 title="Cool Conversation",
                 icon="😎",
-                created_at="2023-10-01T12:00:00Z",
-                updated_at="2023-10-01T12:00:00Z"
+                created_at=dt.datetime.now(),
+                updated_at=dt.datetime.now()
             )
         ]
     )
-    messages: List[Message] = Field(
+    
+    messages: List[MessageResponse] = Field(
         default_factory=list,
         description="List of messages in the conversation.",
     )

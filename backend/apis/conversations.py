@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 import backend.constants as c
 import backend.deps as dp
-import backend.models.api as mdl
+import backend.models as mdl
+import backend.services.conversations as svc
 
 CONVERSATIONS = APIRouter(
     prefix=c.APIPrefix.CONVERSATIONS.value,
@@ -22,21 +23,28 @@ CONVERSATIONS = APIRouter(
 )
 def get_conversations(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
 ) -> mdl.GetConversationsResponse:
-    
+
+    conversations, err = svc.get_conversations(
+        session=session,
+        user_profile=user_profile,
+        request_id=request_id,
+    )
+    if err:
+        return mdl.GetConversationsResponse(
+            status="error",
+            message="Failed to retrieve conversations.",
+            request_id=request_id,
+            conversations=conversations
+        )
+
     return mdl.GetConversationsResponse(
         status="success",
         message="Conversations retrieved successfully.",
         request_id=request_id,
-        conversations=[
-            mdl.ConversationMaster(
-                conversation_id=str(uuid.uuid4()),
-                title="Cool Conversation Title",
-                icon="😎",
-                created_at="2023-10-01T12:00:00Z",
-                updated_at="2023-10-01T12:00:00Z"
-            )
-        ]
+        conversations=conversations
     )
 
 
@@ -51,6 +59,7 @@ def get_conversation(
     conversation_id: str,
 ) -> mdl.GetConversationResponse:
     
+    parent = str(uuid.uuid4())
     return mdl.GetConversationResponse(
         status="success",
         message="Conversation details retrieved successfully.",
@@ -59,22 +68,41 @@ def get_conversation(
             conversation_id=conversation_id,
             title="Cool Conversation Title",
             icon="😎",
-            created_at="2023-10-01T12:00:00Z",
-            updated_at="2023-10-01T12:00:00Z"
+            created_at= dt.datetime.now(),
+            updated_at=dt.datetime.now()
         ),
         messages=[
-            mdl.Message(
+            mdl.MessageResponse(
+                message_id=parent,
+                content=mdl.Content(
+                    type="text",
+                    parts=["What's up?"]
+                ),
+                role="user",
+                agent_id=None,
+                llm=None,
+                parent_message_id=None,
+                updated_at=dt.datetime.now(),
+                created_at=dt.datetime.now(),
+            ),
+            mdl.MessageResponse(
                 message_id=str(uuid.uuid4()),
                 content=mdl.Content(
                     type="text",
-                    parts=["This is a message in the conversation."]
+                    parts=["What's up?"]
                 ),
-                role="user",
+                role="assistant",
                 agent_id="default-agent-id",
-                model="default-model",
-                parent_message_id=None,
+                llm=mdl.LLMModel(
+                    issuer="OpenAI",
+                    deployment_id="gpt-4o-mini",
+                    name="GPT 4o Mini",
+                    description="A smaller version of GPT-4 optimized for speed and efficiency.",
+                    icon_link="https://img.icons8.com/?size=100&id=FBO05Dys9QCg&format=png&color=000000"
+                ),
+                parent_message_id=parent,
                 updated_at=dt.datetime.now(),
-                created_at=dt.datetime.now()
-            )
+                created_at=dt.datetime.now(),
+            ),
         ]
     )

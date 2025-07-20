@@ -113,6 +113,7 @@ class AgentSubscriber(AgentBase):
         doc="Foreign key referencing the agent this subscriber belongs to.",
     )
     agent_version: Mapped[int] = mapped_column(
+        primary_key=True,
         doc="Version of the agent this subscriber is subscribed to."
     )
     created_at: Mapped[dt.datetime] = mapped_column(

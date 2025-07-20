@@ -161,7 +161,7 @@ export type AgentPublish = {
      * Output Schema
      * Output schema for the agent's responses. if not provided, it will be raw string
      */
-    output_schema: Array<Attribute> | null;
+    output_schema?: Array<Attribute> | null;
 };
 
 /**
@@ -352,7 +352,7 @@ export type GetConversationResponse = {
      * Messages
      * List of messages in the conversation.
      */
-    messages?: Array<Message>;
+    messages?: Array<MessageResponse>;
 };
 
 /**
@@ -412,10 +412,10 @@ export type GetMeResponse = {
      */
     agents?: Array<Agent>;
     /**
-     * Models
+     * Llms
      * List of model IDs that the user has access to.
      */
-    models?: Array<LlmModel>;
+    llms?: Array<LlmModel>;
 };
 
 /**
@@ -477,10 +477,17 @@ export type LlmModelRequest = {
 };
 
 /**
- * Message
+ * MessageRequest
+ */
+export type MessageRequest = {
+    content: Content;
+};
+
+/**
+ * MessageResponse
  * Message model representing a single message in a conversation.
  */
-export type Message = {
+export type MessageResponse = {
     /**
      * Message Id
      * Unique identifier of the message.
@@ -506,10 +513,9 @@ export type Message = {
      */
     content: Content;
     /**
-     * Llm
      * The deployment id of model used to generate the message.
      */
-    llm: string;
+    llm: LlmModel | null;
     /**
      * Created At
      * Creation timestamp of the message.
@@ -520,13 +526,6 @@ export type Message = {
      * Last updated timestamp of the message.
      */
     updated_at: string;
-};
-
-/**
- * MessageRequest
- */
-export type MessageRequest = {
-    content: Content;
 };
 
 /**

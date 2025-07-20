@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+
 class LLMModel(BaseModel):
     issuer: str = Field(
         ...,
@@ -26,7 +27,14 @@ class LLMModel(BaseModel):
         None,
         description="Link to the user's icon or avatar, if available.",
         examples=["https://example.com/icon.png"]
-    )
+        )
+
+class LLMModelResponse(LLMModel):
+    """
+    Response model for LLM model operations.
+    """
+    pass
+    
 
 
 class LLMModelRequest(BaseModel):

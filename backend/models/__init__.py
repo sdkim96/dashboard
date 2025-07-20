@@ -15,6 +15,7 @@ from backend.models.conversations import (
 from backend.models.llm import LLMModel
 from backend.models.message import (
     MessageRequest, 
+    MessageResponse,
     Message, 
     Content
 )
@@ -25,6 +26,8 @@ from backend.models.api import (
     BaseResponse, 
     GetAvailableAgentsRequest, 
     GetAvailableAgentsResponse, 
+    GetConversationsResponse,
+    GetConversationResponse,
     GetAgentResponse, 
     PostSubscribeAgentResponse, 
     PostGenerateCompletionRequest

@@ -1,3 +1,4 @@
+import datetime as dt
 import uuid
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -18,13 +19,13 @@ class ConversationMaster(BaseModel):
         description="Link to the user's icon or avatar, if available.",
         examples=["😎"]
     )
-    created_at: str = Field(
+    created_at: dt.datetime = Field(
         ...,
         description="Creation timestamp of the conversation.",
-        examples=["2023-10-01T12:00:00Z"]
+        examples=[dt.datetime.now()]
     )
-    updated_at: str = Field(
+    updated_at: dt.datetime = Field(
         ...,
         description="Last updated timestamp of the conversation.",
-        examples=["2023-10-01T12:00:00Z"]
+        examples=[dt.datetime.now()]
     )

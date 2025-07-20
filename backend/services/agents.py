@@ -32,22 +32,13 @@ def get_available_agents(
     Tag = tbl.AgentTag
     Subscribe = tbl.AgentSubscriber
 
-    tag_subq = (
-        select(
-            Tag.agent_id,
-            func.array_agg(Tag.tag).label("tags")
-        )
-        .group_by(Tag.agent_id)
-        .subquery()
-    )
-
     stmt = (
         select(
             Master.agent_id,
             Detail.version,
             Master.name,
             Master.icon_link,
-            tag_subq.c.tags,
+            func.array_agg(Tag.tag).label("tags"),
             func.coalesce(Subscribe.user_id.is_not(None), False).label("subscribed")
         )
         .join(
@@ -55,19 +46,32 @@ def get_available_agents(
             Master.agent_id == Detail.agent_id
         )
         .outerjoin(
+            Tag,
+            Master.agent_id == Tag.agent_id
+        )
+        .outerjoin(
             Subscribe,
             (Subscribe.agent_id == Master.agent_id) &
-            (Subscribe.agent_version == Detail.version)
+            (Subscribe.agent_version == Detail.version) &
+            (Subscribe.user_id == user.user_id)
         )
-        .outerjoin(tag_subq, Master.agent_id == tag_subq.c.agent_id)
-        .where(Master.is_active.is_(True), Master.is_deleted.is_(False))
+        .where(
+            Master.is_active.is_(True),
+            Master.is_deleted.is_(False),
+        )
+        .group_by(
+            Master.agent_id,
+            Detail.version,
+            Master.name,
+            Master.icon_link,
+            Subscribe.user_id
+        )
     )
 
     if search:
         stmt = stmt.where(
             or_(
                 Master.name.ilike(f"%{search}%"),
-                func.array_to_string(tag_subq.c.tags, ' ').ilike(f"%{search}%")
             )
         )
 

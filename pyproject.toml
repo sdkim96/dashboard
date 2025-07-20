@@ -11,5 +11,6 @@ dependencies = [
     "openai>=1.97.0",
     "psycopg2>=2.9.10",
     "python-dotenv>=1.1.1",
+    "requests>=2.32.4",
     "sqlalchemy>=2.0.41",
 ]

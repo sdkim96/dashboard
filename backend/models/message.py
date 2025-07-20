@@ -5,6 +5,7 @@ from typing import List
 from pydantic import BaseModel, Field
 
 import backend._types as t
+from backend.models.llm import LLMModel
 
 class Content(BaseModel):
     """
@@ -23,6 +24,52 @@ class Content(BaseModel):
 
 class MessageRequest(BaseModel):
     content: Content
+
+class MessageResponse(BaseModel):
+    """
+    Message model representing a single message in a conversation.
+    """
+    message_id: str = Field(
+        ...,
+        description="Unique identifier of the message.",
+        examples=["message-123"]
+    )
+    parent_message_id: str | None = Field(
+        None,
+        description="ID of the parent message, if this message is a reply.",
+        examples=["parent-message-123"]
+    )
+    agent_id: str | None = Field(
+        None,
+        description="ID of the agent that sent the message, if applicable.",
+        examples=["agent-123"]
+    )
+    role: t.MessageRoleLiteral = Field(
+        ...,
+        description="Role of the message sender, e.g., 'user' or 'assistant'.",
+        examples=["user", "assistant"]
+    )
+    content: Content = Field(
+        ...,
+        description="Content of the message.",
+        examples=[Content(type='text', parts=["Hello, how can I help you?"])]
+    )
+    llm: LLMModel | None = Field(
+        ...,
+        description="The deployment id of model used to generate the message.",
+        examples=[LLMModel(issuer="openai", deployment_id="deployment-123", name="example_user", description="This is an example model.", icon_link=None)]
+    )
+    created_at: dt.datetime = Field(
+        ...,
+        description="Creation timestamp of the message.",
+        examples=["2023-10-01T12:00:00Z"]
+    )
+    updated_at: dt.datetime = Field(
+        ...,
+        description="Last updated timestamp of the message.",
+        examples=["2023-10-01T12:00:00Z"]
+    )
+
 
 class Message(BaseModel):
     """
@@ -56,7 +103,7 @@ class Message(BaseModel):
     llm: str = Field(
         ...,
         description="The deployment id of model used to generate the message.",
-        examples=["gpt-3.5-turbo"]
+        examples=["deployment-123"]
     )
     created_at: dt.datetime = Field(
         ...,
