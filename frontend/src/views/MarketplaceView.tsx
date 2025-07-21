@@ -38,7 +38,8 @@ import { HiSearch, HiStar, HiDownload, HiUser, HiCalendar, HiTag } from 'react-i
 import { 
   getAvailableAgentsApiV1AgentsGet,
   getAgentApiV1AgentsAgentIdVersionAgentVersionGet,
-  subscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePost
+  subscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePost,
+  
 } from '../client';
 
 // 정확한 타입 import
@@ -47,7 +48,6 @@ import type {
   AgentDetail,
   GetAvailableAgentsResponse,
   GetAgentResponse,
-  PostSubscribeAgentResponse
 } from '../client';
 
 // 카드 컴포넌트 Props

@@ -36,11 +36,16 @@ import {
   getConversationsApiV1ConversationsGet,
   getConversationApiV1ConversationsConversationIdGet,
   getMeApiV1UserGet,
+  generateCompletionApiV1CompletionPost,
   type ConversationMaster,
+  type MessageRequest,
   type MessageResponse,
   type LlmModel,
   type User,
-  type Agent
+  type Agent,
+  type GenerateCompletionApiV1CompletionPostData,
+  type PostGenerateCompletionRequest
+
 } from '../client';
 
 // 컴포넌트 import
@@ -192,51 +197,201 @@ const ChatView: React.FC = () => {
     }
   };
 
-  // Event handlers
-  const handleSendMessage = (): void => {
-    if (!message.trim() || !selectedConversationId) return;
+// ChatView.tsx의 handleSendMessage 함수를 다음과 같이 수정
 
-    setSendingMessage(true);
-    
-    const newUserMessage: MessageResponse = {
-      message_id: `msg-${Date.now()}`,
-      role: 'user',
-      content: {
-        type: 'text',
-        parts: [message]
-      },
-      llm: null,
-      agent_id: selectedAgent?.agent_id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+const handleSendMessage = async (): Promise<void> => {
+  if (!message.trim() || !selectedConversationId) return;
+
+  setSendingMessage(true);
+  
+  // 사용자 메시지 즉시 추가
+  const newUserMessage: MessageResponse = {
+    message_id: `msg-${Date.now()}`,
+    role: 'user',
+    content: {
+      type: 'text',
+      parts: [message]
+    },
+    llm: null,
+    agent_id: selectedAgent?.agent_id || null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  setMessages(prev => [...prev, newUserMessage]);
+  setMessage('');
+
+  // AI 응답을 위한 임시 메시지 ID
+  const aiMessageId = `msg-${Date.now() + 1}`;
+  
+  // AI 응답 메시지 초기화 (로딩 상태)
+  const aiResponseMessage: MessageResponse = {
+    message_id: aiMessageId,
+    role: 'assistant',
+    content: {
+      type: 'text',
+      parts: ['']
+    },
+    llm: selectedModel || {
+      issuer: 'openai',
+      deployment_id: 'gpt-4',
+      name: 'GPT-4',
+      description: 'GPT-4 Model',
+      icon_link: null
+    },
+    agent_id: selectedAgent?.agent_id || null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  setMessages(prev => [...prev, aiResponseMessage]);
+
+  try {
+    const requestData: GenerateCompletionApiV1CompletionPostData = {
+      body: {
+        action: 'next',
+        conversation_id: selectedConversationId,
+        messages: [
+          {
+            content: {
+              type: 'text',
+              parts: [message]
+            }
+          }
+        ] as MessageRequest[],
+        llm: selectedModel as LlmModel,
+        parent_message_id: messages.length > 0 ? messages[messages.length - 1].message_id : null,
+        agent_id: selectedAgent?.agent_id,
+      } as PostGenerateCompletionRequest
     };
 
-    setMessages(prev => [...prev, newUserMessage]);
-    setMessage('');
+    // SSE 스트림 처리
+    const response = await fetch('http://localhost:8000/api/v1/completion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 인증 토큰이 있다면 추가
+        // 'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestData.body),
+    });
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: MessageResponse = {
-        message_id: `msg-${Date.now() + 1}`,
-        role: 'assistant',
-        content: {
-          type: 'text',
-          parts: [`I understand your message. Let me help you with that using ${selectedModel?.name || 'the selected model'}...`]
-        },
-        llm: selectedModel || {
-          issuer: 'openai',
-          deployment_id: 'gpt-4',
-          name: 'GPT-4',
-          description: 'GPT-4 Model',
-          icon_link: null
-        },
-        agent_id: selectedAgent?.agent_id || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, aiResponse]);
-      setSendingMessage(false);
-    }, 1000);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error('No response body');
+    }
+
+    let accumulatedMessage = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      
+      // 마지막 줄이 완전하지 않을 수 있으므로 버퍼에 유지
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.trim() === '') continue;
+        
+        if (line.startsWith('event:')) {
+          // event 타입 처리 (필요한 경우)
+          const eventType = line.slice(6).trim();
+          console.log('Event type:', eventType);
+        } else if (line.startsWith('data:')) {
+          const data = line.slice(5).trim();
+          
+          try {
+            const parsed = JSON.parse(data);
+            
+            if (parsed.message) {
+              // 메시지가 전체 내용인 경우 (예시의 마지막 데이터처럼)
+              if (parsed.message.length > 100) {
+                accumulatedMessage = parsed.message;
+              } else {
+                // 상태 메시지인 경우 (🤔, 🧐 등)
+                // 필요하다면 별도의 상태 표시 UI를 추가할 수 있습니다
+                console.log('Status:', parsed.message);
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.message_id === aiMessageId 
+                      ? {
+                          ...msg,
+                          content: {
+                            ...msg.content,
+                            parts: [parsed.message]
+                          }
+                        }
+                      : msg
+                  )
+                );
+                continue;
+              }
+              
+              // 메시지 업데이트
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.message_id === aiMessageId 
+                    ? {
+                        ...msg,
+                        content: {
+                          ...msg.content,
+                          parts: [accumulatedMessage || parsed.message]
+                        }
+                      }
+                    : msg
+                )
+              );
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE data:', e);
+          }
+        }
+      }
+    }
+
+    // 버퍼에 남은 데이터 처리
+    if (buffer.trim()) {
+      console.log('Remaining buffer:', buffer);
+    }
+
+  } catch (error) {
+    console.error('Failed to send message:', error);
+    
+    // 에러 발생 시 AI 메시지 업데이트
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.message_id === aiMessageId 
+          ? {
+              ...msg,
+              content: {
+                ...msg.content,
+                parts: ['죄송합니다. 응답을 생성하는 중 오류가 발생했습니다.']
+              }
+            }
+          : msg
+      )
+    );
+    
+    toast({
+      title: 'Error',
+      description: 'Failed to send message',
+      status: 'error',
+      duration: 3000,
+      isClosable: true,
+    });
+  } finally {
+    setSendingMessage(false);
+  }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {

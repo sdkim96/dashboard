@@ -19,6 +19,26 @@ COMPLETION = APIRouter(
     summary="Generate Completion",
     description="Generates a completion based on the provided input.",
     response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "Streaming response containing the generated completion.",
+            "content": {
+                "text/event-stream": {
+                    "schema": {
+                        "type": "string",
+                        "format": "event-stream",
+                        "x-stream-type": "server-sent-events",
+                    },
+                    "example": "data: {\"message\": \"Generated text here...\"}\n\n"
+                }
+            }
+        },
+    },
+    openapi_extra={
+        "x-streaming": True,
+        "x-stream-response": True,
+        "x-response-format": "text/event-stream"
+    }
 )
 async def generate_completion(
     request_id: Annotated[str, Depends(dp.generate_request_id)],

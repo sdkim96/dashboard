@@ -963,10 +963,12 @@ export type GenerateCompletionApiV1CompletionPostError = GenerateCompletionApiV1
 
 export type GenerateCompletionApiV1CompletionPostResponses = {
     /**
-     * Successful Response
+     * Streaming response containing the generated completion.
      */
-    200: unknown;
+    200: string;
 };
+
+export type GenerateCompletionApiV1CompletionPostResponse = GenerateCompletionApiV1CompletionPostResponses[keyof GenerateCompletionApiV1CompletionPostResponses];
 
 export type ClientOptions = {
     baseUrl: 'http://localhost:8000' | (string & {});
