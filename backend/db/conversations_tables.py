@@ -9,6 +9,29 @@ from backend.models.message import Content
 class ConversationBase(DeclarativeBase):
     pass
 
+class LLMIssuer(ConversationBase):
+    __tablename__ = 'llm_issuer'
+
+    deployment_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc="The unique identifier for the LLM deployment, e.g., 'gpt-4o-mini'."
+    )
+    issuer: Mapped[str] = mapped_column(
+        doc="The name of the LLM provider, e.g., 'openai', 'anthropic'."
+    )
+    name: Mapped[str] = mapped_column(
+        doc="The name of the LLM model, e.g., 'GPT-4o Mini'."
+    )
+    description: Mapped[str] = mapped_column(
+        doc="A brief description of the LLM provider."
+    )
+    icon_link: Mapped[Optional[str]] = mapped_column(
+        doc="Link to the icon representing the LLM provider."
+    )
+    
+    def __repr__(self):
+        return f"<LLMProvider(issuer={self.issuer}, deployment_id={self.deployment_id})>"
+
 class Conversation(ConversationBase):
     __tablename__ = 'conversation'
 
@@ -65,7 +88,7 @@ class Message(ConversationBase):
     content: Mapped[str] = mapped_column(
         doc="The content of the message in the conversation."
     )
-    llm: Mapped[str] = mapped_column(
+    llm_deployment_id: Mapped[Optional[str]] = mapped_column(
         doc="The llm_model used to generate the message. It can be a specific model name"
     )
     created_at: Mapped[dt.datetime] = mapped_column(

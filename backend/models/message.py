@@ -100,7 +100,7 @@ class Message(BaseModel):
         description="Content of the message.",
         examples=[Content(type='text', parts=["Hello, how can I help you?"])]
     )
-    llm: str = Field(
+    llm_deployment_id: str | None = Field(
         ...,
         description="The deployment id of model used to generate the message.",
         examples=["deployment-123"]
@@ -123,7 +123,6 @@ class Message(BaseModel):
         parent_message_id: str | None,
         agent_id: str | None,
         content: Content, 
-        llm: str, 
     ) -> 'Message':
         """
         Create a user message instance.
@@ -134,7 +133,7 @@ class Message(BaseModel):
             agent_id=agent_id,
             role='user',
             content=content,
-            llm=llm,
+            llm_deployment_id=None,
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now()
         )
@@ -146,7 +145,7 @@ class Message(BaseModel):
         parent_message_id: str | None,
         agent_id: str | None,
         content: Content, 
-        llm: str, 
+        llm_deployment_id: str, 
     ) -> 'Message':
         """
         Create an assistant message instance.
@@ -157,7 +156,7 @@ class Message(BaseModel):
             agent_id=agent_id,
             role='assistant',
             content=content,
-            llm=llm,
+            llm_deployment_id=llm_deployment_id,
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now()
         )

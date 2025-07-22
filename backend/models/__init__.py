@@ -24,6 +24,7 @@ from backend.models.history import History
 from backend.models.api import (
     BaseRequest, 
     BaseResponse, 
+    CreateConversationResponse,
     GetAvailableAgentsRequest, 
     GetAvailableAgentsResponse, 
     GetConversationsResponse,

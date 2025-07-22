@@ -252,6 +252,38 @@ export type ConversationMaster = {
 };
 
 /**
+ * CreateConversationResponse
+ * POST /api/v1/conversation/new Response model
+ */
+export type CreateConversationResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Conversation Id
+     * ID of the newly created conversation.
+     */
+    conversation_id: string;
+    /**
+     * Parent Message Id
+     * Parent message ID for the conversation, if applicable.
+     */
+    parent_message_id?: null;
+};
+
+/**
  * GetAgentResponse
  * GET /api/v1/agents/{agent_id} Response model
  */
@@ -737,6 +769,22 @@ export type GetMeApiV1UserGetResponses = {
 };
 
 export type GetMeApiV1UserGetResponse = GetMeApiV1UserGetResponses[keyof GetMeApiV1UserGetResponses];
+
+export type NewConversationApiV1ConversationsNewPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conversations/new';
+};
+
+export type NewConversationApiV1ConversationsNewPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: CreateConversationResponse;
+};
+
+export type NewConversationApiV1ConversationsNewPostResponse = NewConversationApiV1ConversationsNewPostResponses[keyof NewConversationApiV1ConversationsNewPostResponses];
 
 export type GetConversationsApiV1ConversationsGetData = {
     body?: never;

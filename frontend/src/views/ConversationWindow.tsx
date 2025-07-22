@@ -183,49 +183,6 @@ const ConversationWindow: React.FC<ConversationWindowProps> = ({
                 </Flex>
               </Box>
             ))}
-            
-            {/* 타이핑 인디케이터 */}
-            {sendingMessage && (
-            <Box px={6} py={4}>
-                <Flex direction="row" align="start" spacing={4} gap={4}>
-                <Avatar size="sm" bg="green.500" color="white" />
-                <VStack align="start" flex={1} spacing={2} maxW="80%">
-                    <Text fontSize="sm" fontWeight="semibold" color="gray.600">
-                    Assistant
-                    </Text>
-                    <Box bg="gray.100" px={4} py={3} borderRadius="lg">
-                    <HStack spacing={1}>
-                        <Box 
-                        w={2} 
-                        h={2} 
-                        bg="gray.400" 
-                        borderRadius="full"
-                        animation="pulse 1.4s infinite"
-                        style={{ animationDelay: '0s' }}
-                        />
-                        <Box 
-                        w={2} 
-                        h={2} 
-                        bg="gray.400" 
-                        borderRadius="full"
-                        animation="pulse 1.4s infinite"
-                        style={{ animationDelay: '0.2s' }}
-                        />
-                        <Box 
-                        w={2} 
-                        h={2} 
-                        bg="gray.400" 
-                        borderRadius="full"
-                        animation="pulse 1.4s infinite"
-                        style={{ animationDelay: '0.4s' }}
-                        />
-                    </HStack>
-                    </Box>
-                </VStack>
-                </Flex>
-            </Box>
-            )}
-            <div ref={messagesEndRef} />
           </VStack>
         )}
       </Box>

@@ -29,3 +29,13 @@ class ConversationMaster(BaseModel):
         description="Last updated timestamp of the conversation.",
         examples=[dt.datetime.now()]
     )
+
+    @classmethod
+    def failed(cls):
+        return cls(
+            conversation_id="",
+            title="",
+            icon=None,
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now()
+        )

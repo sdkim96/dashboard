@@ -36,7 +36,8 @@ import {
   getConversationsApiV1ConversationsGet,
   getConversationApiV1ConversationsConversationIdGet,
   getMeApiV1UserGet,
-  generateCompletionApiV1CompletionPost,
+  newConversationApiV1ConversationsNewPost,
+
   type ConversationMaster,
   type MessageRequest,
   type MessageResponse,
@@ -72,6 +73,7 @@ const ChatView: React.FC = () => {
   const [message, setMessage] = useState<string>('');
   const [conversations, setConversations] = useState<ConversationMaster[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [currentFinalParentMessageId, setCurrentFinalParentMessageId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
@@ -145,6 +147,29 @@ const ChatView: React.FC = () => {
     }
   };
 
+  const fetchNewConversation = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const response = await newConversationApiV1ConversationsNewPost();
+      if (response.data && response.data.conversation_id) {
+        setSelectedConversationId(response.data.conversation_id);
+        setCurrentFinalParentMessageId(response.data.parent_message_id || null);
+      }
+      
+    } catch (error) {
+      console.error('Failed to fetch new conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load conversations',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchConversations = async (): Promise<void> => {
     setLoading(true);
     try {
@@ -180,6 +205,7 @@ const ChatView: React.FC = () => {
       
       if (response.data && response.data.messages) {
         setMessages(response.data.messages);
+        setCurrentFinalParentMessageId(response.data.messages.length > 0 ? response.data.messages[response.data.messages.length - 1].message_id : null);
       } else {
         setMessages([]);
       }
@@ -194,10 +220,11 @@ const ChatView: React.FC = () => {
       });
     } finally {
       setMessagesLoading(false);
+      console.log("currentFinalParentMessageId:", currentFinalParentMessageId);
     }
   };
 
-// ChatView.tsx의 handleSendMessage 함수를 다음과 같이 수정
+// ChatView.tsx의 handleSendMessage 함수를 다음과 같이 교체하세요:
 
 const handleSendMessage = async (): Promise<void> => {
   if (!message.trim() || !selectedConversationId) return;
@@ -207,6 +234,7 @@ const handleSendMessage = async (): Promise<void> => {
   // 사용자 메시지 즉시 추가
   const newUserMessage: MessageResponse = {
     message_id: `msg-${Date.now()}`,
+    parent_message_id: currentFinalParentMessageId || null,
     role: 'user',
     content: {
       type: 'text',
@@ -287,81 +315,191 @@ const handleSendMessage = async (): Promise<void> => {
       throw new Error('No response body');
     }
 
+    let accumulatedStatus = '';
     let accumulatedMessage = '';
     let buffer = '';
+    let currentEvent = '';
+    let isDataStreaming = false;
 
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      try {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      
-      // 마지막 줄이 완전하지 않을 수 있으므로 버퍼에 유지
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.trim() === '') continue;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
         
-        if (line.startsWith('event:')) {
-          // event 타입 처리 (필요한 경우)
-          const eventType = line.slice(6).trim();
-          console.log('Event type:', eventType);
-        } else if (line.startsWith('data:')) {
-          const data = line.slice(5).trim();
+        // 마지막 줄이 완전하지 않을 수 있으므로 버퍼에 유지
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine === '') continue;
           
-          try {
-            const parsed = JSON.parse(data);
+          // SSE 이벤트 파싱
+          if (trimmedLine.startsWith('event:')) {
+            currentEvent = trimmedLine.slice(6).trim();
+            continue;
+          }
+          
+          if (trimmedLine.startsWith('data:')) {
+            const data = trimmedLine.slice(5).trim();
             
-            if (parsed.message) {
-              // 메시지가 전체 내용인 경우 (예시의 마지막 데이터처럼)
-              if (parsed.message.length > 100) {
-                accumulatedMessage = parsed.message;
-              } else {
-                // 상태 메시지인 경우 (🤔, 🧐 등)
-                // 필요하다면 별도의 상태 표시 UI를 추가할 수 있습니다
-                console.log('Status:', parsed.message);
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.message_id === aiMessageId 
-                      ? {
-                          ...msg,
-                          content: {
-                            ...msg.content,
-                            parts: [parsed.message]
-                          }
-                        }
-                      : msg
-                  )
-                );
-                continue;
-              }
+            try {
+              const parsed = JSON.parse(data);
               
-              // 메시지 업데이트
-              setMessages(prev => 
-                prev.map(msg => 
-                  msg.message_id === aiMessageId 
-                    ? {
-                        ...msg,
-                        content: {
-                          ...msg.content,
-                          parts: [accumulatedMessage || parsed.message]
-                        }
+
+              if ('message' in parsed) {
+                switch(currentEvent) {
+                  case 'start':
+                    // 시작 이벤트 - 보통 빈 메시지
+                    console.log('Stream started');
+                    break;
+                    
+                  case 'status':
+                    // 상태 메시지 표시 (🤔, 🧐 등)
+                    
+                    if (!isDataStreaming) {
+                      console.log('Status:', parsed.message);
+                      accumulatedStatus += parsed.message + '\n';
+
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.message_id === aiMessageId 
+                            ? {
+                                ...msg,
+                                content: {
+                                  ...msg.content,
+                                  parts: [accumulatedStatus]
+                                }
+                              }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+                    
+                  case 'data':
+                    // 실제 응답 메시지 - 스트리밍
+                    if (!isDataStreaming) {
+                      // 첫 번째 data 이벤트가 왔을 때 status 메시지를 지우고 시작
+                      isDataStreaming = true;
+                      accumulatedMessage = '';
+                    }
+                    
+                    // 메시지를 누적
+                    if (parsed.message) {
+                      // 줄바꿈 추가 (마크다운 형식 유지)
+                      if (accumulatedMessage && !accumulatedMessage.endsWith('\n')) {
+                        accumulatedMessage += '\n';
                       }
-                    : msg
-                )
-              );
+                      accumulatedMessage += parsed.message;
+                      
+                      console.log('Streaming data chunk:', parsed.message);
+                      
+                      // 메시지 업데이트 (스트리밍 효과)
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.message_id === aiMessageId 
+                            ? {
+                                ...msg,
+                                content: {
+                                  ...msg.content,
+                                  parts: [accumulatedMessage]
+                                }
+                              }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+                    
+                  case 'done':
+                    // 완료 이벤트 - 전체 메시지가 담겨있음
+                    console.log('Stream completed');
+                    isDataStreaming = false;
+                    
+                    // done 이벤트의 메시지로 최종 확인 (옵션)
+                    // 서버가 done에 전체 메시지를 보내는 경우 사용
+                    if (parsed.message && parsed.message !== '....위 내용 전부 담길예정 ...') {
+                      accumulatedMessage = parsed.message;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.message_id === aiMessageId 
+                            ? {
+                                ...msg,
+                                content: {
+                                  ...msg.content,
+                                  parts: [accumulatedMessage]
+                                }
+                              }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+                    
+                  default:
+                    console.log(`Unknown event type: ${currentEvent}`, parsed);
+                }
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e, data);
             }
-          } catch (e) {
-            console.error('Failed to parse SSE data:', e);
           }
         }
+      } catch (readError) {
+        console.error('Error reading stream:', readError);
+        break;
       }
     }
 
     // 버퍼에 남은 데이터 처리
     if (buffer.trim()) {
       console.log('Remaining buffer:', buffer);
+      // 남은 버퍼도 처리 시도
+      const lines = buffer.split('\n');
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('event:')) {
+          currentEvent = trimmedLine.slice(6).trim();
+        } else if (trimmedLine.startsWith('data:')) {
+          const data = trimmedLine.slice(5).trim();
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.message && currentEvent === 'data') {
+              if (accumulatedMessage && !accumulatedMessage.endsWith('\n')) {
+                accumulatedMessage += '\n';
+              }
+              accumulatedMessage += parsed.message;
+            }
+          } catch (e) {
+            console.error('Failed to parse remaining buffer:', e);
+          }
+        }
+      }
+      
+      // 최종 메시지 업데이트
+      if (accumulatedMessage) {
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.message_id === aiMessageId 
+              ? {
+                  ...msg,
+                  content: {
+                    ...msg.content,
+                    parts: [accumulatedMessage]
+                  }
+                }
+              : msg
+          )
+        );
+      }
+    }
+
+    // 스트림이 완료되었는데 메시지가 없는 경우
+    if (!accumulatedMessage) {
+      throw new Error('No response received from server');
     }
 
   } catch (error) {
@@ -384,15 +522,17 @@ const handleSendMessage = async (): Promise<void> => {
     
     toast({
       title: 'Error',
-      description: 'Failed to send message',
+      description: error instanceof Error ? error.message : 'Failed to send message',
       status: 'error',
       duration: 3000,
       isClosable: true,
     });
   } finally {
     setSendingMessage(false);
+    fetchConversationDetails(selectedConversationId);
+    
   }
-  };
+};
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -403,6 +543,7 @@ const handleSendMessage = async (): Promise<void> => {
 
   const handleNewChat = (): void => {
     console.log('New chat');
+    fetchNewConversation();
   };
 
   const handleSelectConversation = (conversationId: string): void => {

@@ -162,6 +162,21 @@ class PostGenerateCompletionRequest(BaseRequest):
 ########################
 ## 2. Response Models ##
 ########################
+class CreateConversationResponse(BaseResponse):
+    """
+    POST /api/v1/conversation/new Response model
+    """
+    conversation_id: str = Field(
+        ...,
+        description="ID of the newly created conversation.",
+        examples=[str(uuid.uuid4())]
+    )
+    parent_message_id: None = Field(
+        None,
+        description="Parent message ID for the conversation, if applicable.",
+        examples=[None]
+    )
+    
 class GetMeResponse(BaseResponse):
     """
     GET /api/v1/user Response model

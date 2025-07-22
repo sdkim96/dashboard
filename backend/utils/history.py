@@ -35,7 +35,7 @@ def get_history(
             Message.message_id,
             Message.content,
             Message.role,
-            Message.llm,
+            Message.llm_deployment_id,
             Message.created_at,
             Message.updated_at
         )
@@ -72,7 +72,7 @@ def get_history(
             content=mdl.Content.model_validate_json(msg.content),
             created_at=msg.created_at,
             updated_at=msg.updated_at,
-            llm=msg.llm 
+            llm_deployment_id=msg.llm_deployment_id
         ) for msg in results
     ]
 
@@ -126,7 +126,7 @@ def set_history(
             agent_id=new_message.agent_id,
             role=new_message.role,
             content=new_message.content.model_dump_json(),
-            llm=new_message.llm,
+            llm_deployment_id=new_message.llm_deployment_id,
             created_at=new_message.created_at,
             updated_at=new_message.updated_at,
         )

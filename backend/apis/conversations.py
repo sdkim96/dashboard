@@ -15,6 +15,27 @@ CONVERSATIONS = APIRouter(
     tags=[c.APITag.CONVERSATIONS],
 )
 
+
+@CONVERSATIONS.post(
+    path="/new",
+    summary="New Conversation",
+    description="Creates a new conversation for the current user.",
+    response_model=mdl.CreateConversationResponse,
+)
+async def new_conversation(
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
+) -> mdl.CreateConversationResponse:
+    
+    return mdl.CreateConversationResponse(
+        status="success",
+        message="Conversation created successfully.",
+        request_id=request_id,
+        conversation_id=str(uuid.uuid4()),
+        parent_message_id=None,
+    )
+
 @CONVERSATIONS.get(
     path="",
     summary="Get User Conversations",
@@ -55,54 +76,46 @@ def get_conversations(
     response_model=mdl.GetConversationResponse,
 )
 def get_conversation(
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     request_id: Annotated[str, Depends(dp.generate_request_id)],
     conversation_id: str,
 ) -> mdl.GetConversationResponse:
     
-    parent = str(uuid.uuid4())
+    conversation, err = svc.get_conversation_by_id(
+        session=session,
+        user_profile=user_profile,
+        request_id=request_id,
+        conversation_id=conversation_id
+    )
+    if err:
+        return mdl.GetConversationResponse(
+            status="error",
+            message="Failed to retrieve conversation details.",
+            request_id=request_id,
+            conversation=mdl.ConversationMaster.failed(),
+            messages=[]
+        )
+    
+    messages, err = svc.get_messages(
+        session=session,
+        user_profile=user_profile,
+        request_id=request_id,
+        conversation_id=conversation_id
+    )
+    if err:
+        return mdl.GetConversationResponse(
+            status="error",
+            message="Failed to retrieve messages for the conversation.",
+            request_id=request_id,
+            conversation=conversation,
+            messages=[]
+        )
+    
     return mdl.GetConversationResponse(
         status="success",
         message="Conversation details retrieved successfully.",
         request_id=request_id,
-        conversation=mdl.ConversationMaster(
-            conversation_id=conversation_id,
-            title="Cool Conversation Title",
-            icon="😎",
-            created_at= dt.datetime.now(),
-            updated_at=dt.datetime.now()
-        ),
-        messages=[
-            mdl.MessageResponse(
-                message_id=parent,
-                content=mdl.Content(
-                    type="text",
-                    parts=["What's up?"]
-                ),
-                role="user",
-                agent_id=None,
-                llm=None,
-                parent_message_id=None,
-                updated_at=dt.datetime.now(),
-                created_at=dt.datetime.now(),
-            ),
-            mdl.MessageResponse(
-                message_id=str(uuid.uuid4()),
-                content=mdl.Content(
-                    type="text",
-                    parts=["What's up?"]
-                ),
-                role="assistant",
-                agent_id="default-agent-id",
-                llm=mdl.LLMModel(
-                    issuer="OpenAI",
-                    deployment_id="gpt-4o-mini",
-                    name="GPT 4o Mini",
-                    description="A smaller version of GPT-4 optimized for speed and efficiency.",
-                    icon_link="https://img.icons8.com/?size=100&id=FBO05Dys9QCg&format=png&color=000000"
-                ),
-                parent_message_id=parent,
-                updated_at=dt.datetime.now(),
-                created_at=dt.datetime.now(),
-            ),
-        ]
+        conversation=conversation,
+        messages=messages
     )
