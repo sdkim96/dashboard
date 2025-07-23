@@ -1,4 +1,6 @@
 import React, { useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Box,
   Flex,
@@ -178,9 +180,91 @@ const ConversationWindow: React.FC<ConversationWindowProps> = ({
                       maxW="100%"
                       wordBreak="break-word"
                     >
-                      <Text fontSize="md" lineHeight="1.6" whiteSpace="pre-wrap">
-                        {msg.content.parts?.join('') || ''}
-                      </Text>
+                      {msg.role === 'user' ? (
+                        <Text fontSize="md" lineHeight="1.6" whiteSpace="pre-wrap">
+                          {msg.content.parts?.join('') || ''}
+                        </Text>
+                      ) : (
+                        <Box
+                          sx={{
+                            '& p': { mb: 2, lineHeight: 1.6 },
+                            '& p:last-child': { mb: 0 },
+                            '& h1': { fontSize: '2xl', fontWeight: 'bold', mt: 4, mb: 2 },
+                            '& h2': { fontSize: 'xl', fontWeight: 'bold', mt: 3, mb: 2 },
+                            '& h3': { fontSize: 'lg', fontWeight: 'bold', mt: 2, mb: 1 },
+                            '& ul': { pl: 6, mb: 2 },
+                            '& ol': { pl: 6, mb: 2 },
+                            '& li': { mb: 1 },
+                            '& blockquote': { 
+                              pl: 4, 
+                              borderLeft: '4px solid',
+                              borderColor: 'gray.300',
+                              fontStyle: 'italic',
+                              my: 2 
+                            },
+                            '& code': {
+                              bg: msg.role === 'user' ? 'whiteAlpha.300' : 'gray.200',
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 'sm',
+                              fontSize: 'sm',
+                              fontFamily: 'monospace'
+                            },
+                            '& pre': {
+                              bg: msg.role === 'user' ? 'whiteAlpha.300' : 'gray.800',
+                              color: msg.role === 'user' ? 'white' : 'gray.100',
+                              p: 3,
+                              borderRadius: 'md',
+                              overflowX: 'auto',
+                              my: 2,
+                              '& code': {
+                                bg: 'transparent',
+                                p: 0,
+                                color: 'inherit'
+                              }
+                            },
+                            '& table': {
+                              borderCollapse: 'collapse',
+                              my: 2,
+                              width: '100%'
+                            },
+                            '& th, & td': {
+                              border: '1px solid',
+                              borderColor: 'gray.300',
+                              p: 2
+                            },
+                            '& th': {
+                              bg: 'gray.100',
+                              fontWeight: 'bold'
+                            },
+                            '& a': {
+                              color: 'blue.500',
+                              textDecoration: 'underline',
+                              _hover: { color: 'blue.600' }
+                            },
+                            '& hr': {
+                              my: 4,
+                              borderColor: 'gray.300'
+                            }
+                          }}
+                        >
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              // 코드 블록에 복사 버튼 추가 (선택사항)
+                              pre: ({ children }) => (
+                                <Box position="relative">
+                                  <Box as="pre" overflow="auto">
+                                    {children}
+                                  </Box>
+                                </Box>
+                              ),
+                            }}
+                          >
+                            {msg.content.parts?.join('') || ''}
+                          </ReactMarkdown>
+                        </Box>
+                      )}
                     </Box>
                   </VStack>
                 </Flex>
