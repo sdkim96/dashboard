@@ -12,7 +12,10 @@ import {
   useBreakpointValue,
   Skeleton,
   SkeletonText,
+  Tooltip,
+  Icon,
 } from '@chakra-ui/react';
+import { FaCheck, FaPaperPlane } from 'react-icons/fa';
 import { HiMenu, HiChat } from 'react-icons/hi';
 
 // API 및 타입 import
@@ -183,111 +186,123 @@ const ConversationWindow: React.FC<ConversationWindowProps> = ({
                 </Flex>
               </Box>
             ))}
+            <div ref={messagesEndRef} />
           </VStack>
         )}
       </Box>
 
-      {/* Input Area */}
       {selectedConversationId && (
-        <Box bg="white" borderTop="1px" borderColor="gray.200" p={4}>
-          <Box maxW="3xl" mx="auto">
-            {/* Model Selection */}
-            {availableModels.length > 0 && (
-              <Box mb={3}>
-                <Text fontSize="xs" fontWeight="semibold" color="gray.600" mb={2}>
-                  SELECT MODEL
+      <Box bg="white" borderTop="1px" borderColor="gray.200" p={4}>
+        <Box maxW="3xl" mx="auto">
+          {/* Model Selection - 더 컴팩트한 디자인 */}
+          {availableModels.length > 0 && (
+            <Box mb={2}>
+              <HStack spacing={1} align="center" mb={1}>
+                <Text fontSize="xs" fontWeight="medium" color="gray.600">
+                  Model:
                 </Text>
-                <HStack spacing={2} overflowX="auto" pb={2}>
-                  {availableModels.map((model) => (
+                <Text fontSize="xs" color="blue.600" fontWeight="semibold">
+                  {selectedModel?.name || 'Select a model'}
+                </Text>
+              </HStack>
+              
+              <HStack spacing={1} overflowX="auto" pb={1}>
+                {availableModels.map((model) => (
+                  <Tooltip 
+                    key={model.deployment_id} 
+                    label={`${model.name} (${model.deployment_id})`}
+                    placement="top"
+                    hasArrow
+                  >
                     <Box
-                      key={model.deployment_id}
                       onClick={() => onSelectModel(model)}
                       cursor="pointer"
+                      position="relative"
                       transition="all 0.2s"
-                      _hover={{ transform: "translateY(-1px)" }}
+                      _hover={{ transform: "scale(1.1)" }}
                     >
-                      <VStack
-                        spacing={2}
-                        p={3}
-                        borderRadius="lg"
-                        border="2px solid"
-                        borderColor={selectedModel?.deployment_id === model.deployment_id ? "blue.500" : "gray.200"}
-                        bg={selectedModel?.deployment_id === model.deployment_id ? "blue.50" : "white"}
-                        minW="120px"
-                        _hover={{ 
-                          borderColor: selectedModel?.deployment_id === model.deployment_id ? "blue.600" : "blue.300",
-                          bg: selectedModel?.deployment_id === model.deployment_id ? "blue.100" : "blue.50"
-                        }}
-                      >
-                        <Avatar
-                          size="sm"
-                          name={model.name}
-                          src={model.icon_link || undefined}
-                          bg="blue.500"
-                        />
-                        <VStack spacing={0} align="center">
-                          <Text fontSize="xs" fontWeight="semibold" noOfLines={1} textAlign="center">
-                            {model.name}
-                          </Text>
-                          <Text fontSize="xs" color="gray.500" noOfLines={1} textAlign="center">
-                            {model.deployment_id}
-                          </Text>
-                        </VStack>
-                        {selectedModel?.deployment_id === model.deployment_id && (
-                          <Badge size="xs" colorScheme="blue" variant="solid">
-                            ✓
-                          </Badge>
-                        )}
-                      </VStack>
+                      <Avatar
+                        size="xs"
+                        name={model.name}
+                        src={model.icon_link || undefined}
+                        bg={selectedModel?.deployment_id === model.deployment_id ? "blue.500" : "gray.400"}
+                        border={selectedModel?.deployment_id === model.deployment_id ? "2px solid" : "none"}
+                        borderColor="blue.600"
+                        boxSize="32px"
+                      />
+                      {selectedModel?.deployment_id === model.deployment_id && (
+                        <Box
+                          position="absolute"
+                          bottom="-2px"
+                          right="-2px"
+                          bg="blue.600"
+                          borderRadius="full"
+                          p="1px"
+                        >
+                          <Icon as={FaCheck} color="white" boxSize="10px" />
+                        </Box>
+                      )}
                     </Box>
-                  ))}
-                </HStack>
-              </Box>
-            )}
+                  </Tooltip>
+                ))}
+              </HStack>
+            </Box>
+          )}
 
-            <HStack spacing={3}>
-              <Box flex={1} position="relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={message}
-                  onChange={onMessageChange}
-                  onKeyPress={onKeyPress}
-                  placeholder="Type your message..."
-                  resize="none"
-                  minH="44px"
-                  maxH="200px"
-                  border="1px"
-                  borderColor="gray.300"
-                  borderRadius="lg"
-                  _focus={{
-                    borderColor: "blue.500",
-                    boxShadow: "0 0 0 1px blue.500"
-                  }}
-                  pr="50px"
-                  isDisabled={sendingMessage}
-                />
-                <IconButton
-                  icon={<Text fontSize="lg">→</Text>}
-                  size="sm"
-                  position="absolute"
-                  right="8px"
-                  bottom="8px"
-                  colorScheme="blue"
-                  borderRadius="md"
-                  isDisabled={!message.trim() || sendingMessage}
-                  isLoading={sendingMessage}
-                  onClick={onSendMessage}
-                  aria-label="Send Message"
-                />
-              </Box>
-            </HStack>
-            
-            <Text fontSize="xs" color="gray.500" textAlign="center" mt={2}>
-              Press Enter to send, Shift+Enter for new line
-            </Text>
-          </Box>
+          <HStack spacing={3}>
+            <Box flex={1} position="relative">
+              {/* AutoResizeTextarea 커스텀 구현 */}
+              <Textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => {
+                  onMessageChange(e);
+                  // 자동 높이 조절
+                  const textarea = e.target;
+                  textarea.style.height = 'auto';
+                  textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+                }}
+                onKeyPress={onKeyPress}
+                placeholder="Type your message..."
+                resize="none"
+                minH="40px"
+                maxH="200px"
+                overflowY="auto"
+                border="1px"
+                borderColor="gray.300"
+                borderRadius="lg"
+                _focus={{
+                  borderColor: "blue.500",
+                  boxShadow: "0 0 0 1px blue.500"
+                }}
+                pr="50px"
+                py={2}
+                isDisabled={sendingMessage}
+                transition="height 0.1s ease-in-out"
+              />
+              <IconButton
+                icon={<Icon as={FaPaperPlane} />}
+                size="sm"
+                position="absolute"
+                right="8px"
+                bottom="8px"
+                colorScheme="blue"
+                borderRadius="md"
+                isDisabled={!message.trim() || sendingMessage}
+                isLoading={sendingMessage}
+                onClick={onSendMessage}
+                aria-label="Send Message"
+                variant="solid"
+              />
+            </Box>
+          </HStack>
+          
+          <Text fontSize="xs" color="gray.500" textAlign="center" mt={1}>
+            Enter to send • Shift+Enter or Ctrl+Enter for new line
+          </Text>
         </Box>
-      )}
+      </Box>
+    )}
     </Flex>
   );
 };

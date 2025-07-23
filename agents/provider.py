@@ -58,6 +58,7 @@ class Chat(Generic[ProviderT]):
 
     async def astream(
         self, 
+        deployment_id: str,
         messages: list[dict], 
         output_schema: type[BaseModel] | None = None
     ):
@@ -65,10 +66,26 @@ class Chat(Generic[ProviderT]):
         Asynchronously streams responses from the chat model based on the provided messages.
         
         Args:
+            deployment_id (str): The ID of the chat model to use.
             messages (list[dict]): The messages to send to the chat model.
             output_schema (list[dict], optional): The schema for the expected output.
         
         Yields:
             dict: The response from the chat model.
         """
-        
+        if output_schema:
+            raise NotImplementedError(
+                "Streaming with output schema is not implemented yet."
+            )
+
+        if isinstance(self.client, OpenAI):
+            with self.client.chat.completions.stream(
+                model=deployment_id,
+                messages=messages,
+            ) as stream:
+                for event in stream:
+                    match event.type:
+                        case "content.delta":
+                            yield {"event": "content.delta", "data": event.delta}
+                        case "content.done":
+                            yield {"event": "content.done", "data": event.content}

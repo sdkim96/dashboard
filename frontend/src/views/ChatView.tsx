@@ -390,9 +390,6 @@ const handleSendMessage = async (): Promise<void> => {
                     // 메시지를 누적
                     if (parsed.message) {
                       // 줄바꿈 추가 (마크다운 형식 유지)
-                      if (accumulatedMessage && !accumulatedMessage.endsWith('\n')) {
-                        accumulatedMessage += '\n';
-                      }
                       accumulatedMessage += parsed.message;
                       
                       console.log('Streaming data chunk:', parsed.message);
@@ -530,7 +527,7 @@ const handleSendMessage = async (): Promise<void> => {
   } finally {
     setSendingMessage(false);
     fetchConversationDetails(selectedConversationId);
-    
+    fetchConversations();
   }
 };
 

@@ -1,6 +1,6 @@
 import datetime as dt
 from typing import Optional, Tuple, List
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 import backend.db.conversations_tables as tbl
@@ -30,6 +30,7 @@ def get_history(
             Conversation.user_id,
             Conversation.title,
             Conversation.summary,
+            Conversation.icon,
             Message.agent_id,
             Message.parent_message_id,
             Message.message_id,
@@ -54,6 +55,7 @@ def get_history(
             return mdl.History(
                 conversation_id=conversation_id,
                 user_id=user_id,
+                icon="😎",
                 title="",
                 summary="",
                 messages=[]
@@ -80,9 +82,11 @@ def get_history(
         conversation_id=conversation.conversation_id,
         user_id=conversation.user_id,
         title=conversation.title,
+        icon=conversation.icon or "😎",
         summary=conversation.summary,
         messages=messages
     )
+    
     return history, None
 
 
@@ -113,10 +117,24 @@ def set_history(
                 user_id=history.user_id,
                 title=history.title,
                 summary=history.summary,
+                icon=history.icon or "😎",
                 created_at=dt.datetime.now(),
                 updated_at=dt.datetime.now()
             )
         )
+    else:
+        updated_at = dt.datetime.now()
+        updt= update(
+            tbl.Conversation
+        ).where(
+            tbl.Conversation.conversation_id == history.conversation_id
+        ).values(
+            title=history.title,
+            summary=history.summary,
+            icon=history.icon or "😎",
+            updated_at=updated_at
+        )
+        session.execute(updt)
     
     for new_message in new_messages:
         orm = tbl.Message(
@@ -138,3 +156,4 @@ def set_history(
     except Exception as e:
         session.rollback()
         return ValueError(f"Error setting history: {e}")
+

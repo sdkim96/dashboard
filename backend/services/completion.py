@@ -104,6 +104,7 @@ async def chat_completion(
         content=body.messages[0].content,
     )
     new_messages.append(user)
+    await history.update_context(user)
     
     simple_agent = SimpleAgent(
         agent_id=body.agent_id,
@@ -111,7 +112,7 @@ async def chat_completion(
         issuer=body.llm.issuer,
         deployment_id=body.llm.deployment_id,
     )
-    parts = ""
+    
     lg.logger.info(
         f"Starting streaming for agent {body.agent_id} version {body.agent_version} with user message ID {user_message_id}. Execution time: {time.time() - start:.2f} seconds. "
     )
@@ -120,6 +121,8 @@ async def chat_completion(
         data={"message": "🤖 Generating Answers..."}, 
     )
     await asyncio.sleep(0.1)
+    
+    parts = ""
     async for c in simple_agent.astream(
         messages=history.marshal_to_messagelike(
             user_message=user
@@ -143,20 +146,30 @@ async def chat_completion(
                     parts += p + "\n"
             
         else:
-            for p in c.split("\n"):
-                print(p)
-                if p.strip():
-                    yield await chunk(
-                        event="data", 
-                        data={"message": f"{p}"},
-                    )
-                    await asyncio.sleep(0.02)
-                    parts += p + "\n"
+            async for part in c:
+                match part.get("event"):
+                    case "content.delta":
+                        p = part.get("data", "")
+                        parts += p
+                        print(p)
+                        yield await chunk(
+                            event="data", 
+                            data={"message": f"{p}"},
+                        )
+                        await asyncio.sleep(0.02)
+                    case "content.done":
+                        p = part.get("data", "")
+                        yield await chunk(
+                            event="done",
+                            data={"message": f"{p}"},
+                        )
+                        await asyncio.sleep(0.02)
+                
 
-    yield await chunk(
-        event="done", 
-        data={"message": parts},
-    )
+    # yield await chunk(
+    #     event="done", 
+    #     data={"message": parts},
+    # )
     lg.logger.info(
         f"Streaming completed for agent {body.agent_id} version {body.agent_version} with user message ID {user_message_id}. Total execution time: {time.time() - start:.2f} seconds."
     )

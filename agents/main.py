@@ -78,7 +78,7 @@ class SimpleAgent:
             attributes = [Attribute.model_validate(s) for s in output_schema]
             response_fmt = self._to_pydantic_model(attributes)
 
-        yield await chat.ainvoke(
+        yield chat.astream(
             deployment_id=self.deployment_id,
             messages=messages,
             output_schema=response_fmt
