@@ -17,6 +17,9 @@ class Agent(AgentBase):
     author_id: Mapped[str] = mapped_column(
         doc="The author of the agent. User table's id is used as a foreign key."
     )
+    department_id: Mapped[str] = mapped_column(
+        doc="The department of the agent. Department table's id is used as a foreign key"
+    )
     name: Mapped[str] = mapped_column(
         doc="Name of the agent, unique across all agents."
     )

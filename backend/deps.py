@@ -31,7 +31,8 @@ def get_current_userprofile() -> user_mdl.User:
         user_id="current_user_id",
         username="current_username",
         email="current_user_email",
-        icon_link="https://example.com/current_user_icon.png"
+        icon_link="https://example.com/current_user_icon.png",
+        is_superuser=False,
     )
 
 

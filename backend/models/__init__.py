@@ -21,6 +21,10 @@ from backend.models.message import (
 )
 from backend.models.user import User
 from backend.models.history import History
+from backend.models.recommendations import (
+    RecommendationMaster, 
+    Recommendation, 
+)
 from backend.models.api import (
     BaseRequest, 
     BaseResponse, 

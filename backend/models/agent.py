@@ -30,6 +30,11 @@ class Agent(BaseModel):
         description="Version of the agent.",
         examples=[1]
     )
+    department_name: str = Field(
+        ...,
+        description="Department to which the agent belongs.",
+        examples=["Engineering", "Marketing"]
+    )
     name: str = Field(
         ...,
         description="Username of the user.",

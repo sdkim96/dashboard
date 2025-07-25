@@ -199,6 +199,7 @@ class GetMeResponse(BaseResponse):
             Agent(
                 agent_id="agent-123", 
                 agent_version=1,
+                department_name="Engineering",
                 name="Example Agent", 
                 icon_link=None, 
                 tags=["cool", "good"]

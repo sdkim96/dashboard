@@ -13,6 +13,7 @@ class APIPrefix(enum.Enum):
     AGENTS = PROJECT_API_ENDPOINT + "/agents"
     CONVERSATIONS = PROJECT_API_ENDPOINT + "/conversations"
     COMPLETION = PROJECT_API_ENDPOINT + "/completion"
+    RECOMMENDATIONS = PROJECT_API_ENDPOINT + "/recommendations"
 
 class APITag(enum.Enum):
     """
@@ -24,3 +25,4 @@ class APITag(enum.Enum):
     AGENTS = "agents"
     CONVERSATIONS = "conversations"
     COMPLETION = "completion"
+    RECOMMENDATIONS = "recommendations"
