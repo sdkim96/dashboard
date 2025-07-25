@@ -38,4 +38,6 @@ from backend.models.api import (
     PostGenerateCompletionRequest,
     GetToolsResponse,
     GetToolByIDResponse,
+    GetToolsRequest,
+    PostSubscribeToolResponse
 )

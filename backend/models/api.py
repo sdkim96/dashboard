@@ -165,6 +165,38 @@ class PostGenerateCompletionRequest(BaseRequest):
         )]]
     )
 
+
+
+class GetToolsRequest(BaseRequest):
+    """
+    GET /api/v1/agents Request model
+    """
+    search: str | None = Field(
+        default=None,
+        description="Search term to filter agents by name or description.",
+        examples=["example", "cool agent"]
+    )
+    page: int = Field(
+        default=1,
+        ge=1,
+        description="Page number of the results to return.",
+        examples=[1]
+    )
+    size: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Number of agents per page.",
+        examples=[20]
+    )
+
+    @property
+    def offset(self) -> int:
+        """Offset to be used in DB queries"""
+        return (self.page - 1) * self.size
+
+
+
 ########################
 ## 2. Response Models ##
 ########################
@@ -392,3 +424,9 @@ class GetToolByIDResponse(BaseResponse):
         description="Details of the requested tool.",
         examples=[Tool.mock()]
     )
+
+class PostSubscribeToolResponse(BaseResponse):
+    """
+    POST /api/v1/tools/{tool_id}/subscribe Response model
+    """
+    pass

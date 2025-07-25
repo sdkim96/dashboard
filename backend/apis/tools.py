@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 from typing import Annotated
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from sqlalchemy.orm import Session
 
@@ -31,17 +31,32 @@ def get_tools(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
+    params: mdl.GetToolsRequest = Depends(),
 ) -> mdl.GetToolsResponse:
+    
+    toolmasters, err = svc.get_available_tools(
+        session=session,
+        request_id=request_id,
+        user_profile=user_profile,
+        offset=params.offset,
+        limit=params.size,
+        search=params.search,
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving tools: {err}"
+        )
     
     return mdl.GetToolsResponse(
         status="success",
         message="Tools retrieved successfully.",
         request_id=request_id,
-        tools=[mdl.Tool.mock()],
-        total=1,
-        page=1,
-        size=1,
-        has_next=True
+        tools=toolmasters,
+        total=len(toolmasters),
+        page=params.page,
+        size=params.size,
+        has_next=len(toolmasters) > params.size
     )
 
 
@@ -64,10 +79,64 @@ def get_tool_by_id(
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     tool_id: str,
 ) -> mdl.GetToolByIDResponse:
-    
+
+    tool, err = svc.get_tool_by_id(
+        session=session,
+        request_id=request_id,
+        user_profile=user_profile,
+        tool_id=tool_id,
+    )
+
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving tool: {err}"
+        )
+
     return mdl.GetToolByIDResponse(
         status="success",
         message="Tools retrieved successfully.",
         request_id=request_id,
-        tool=mdl.Tool.mock(),
+        tool=tool,
+    )
+
+
+@TOOLS.post(
+    path="/{tool_id}/subscribe",
+    summary="Subscribe to Tool",
+    description="Subscribes to a tool by its ID.",
+    response_model=mdl.PostSubscribeToolResponse,
+)
+async def subscribe_tool(
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
+    tool_id: str,
+) -> mdl.PostSubscribeToolResponse:
+    """
+    Subscribes to a tool by its ID.
+
+    Args:
+        tool_id (str): Unique identifier of the tool to subscribe to.
+
+    Returns:
+        PostSubscribeToolResponse: Response model indicating the result of the subscription.
+    """
+    
+    _, err = svc.subscribe_tool(
+        session=session,
+        request_id=request_id,
+        user=user_profile,
+        tool_id=tool_id,
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error subscribing to tool: {err}"
+        )
+    
+    return mdl.PostSubscribeToolResponse(
+        status="success",
+        message="Tool subscribed successfully.",
+        request_id=request_id,
     )

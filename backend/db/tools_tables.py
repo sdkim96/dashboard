@@ -57,3 +57,10 @@ class ToolSubscriber(ToolBase):
 
     def __repr__(self):
         return f"<ToolSubscriber(tool_id={self.tool_id}, user_id={self.user_id})>"
+    
+
+def create_tool_all(engine: Engine):
+    ToolBase.metadata.create_all(engine)
+
+def drop_tool_all(engine: Engine):
+    ToolBase.metadata.drop_all(engine)

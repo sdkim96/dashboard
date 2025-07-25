@@ -20,7 +20,7 @@ class ToolMaster(BaseModel):
         None, 
         description="Link to the icon representing the tool. It can be a URL or a path."
     )
-    subscribed_count: int = Field(
+    subscriber_count: int = Field(
         default=0,
         description="Number of users subscribed to this tool."
     )
@@ -32,6 +32,23 @@ class ToolMaster(BaseModel):
         default_factory=dt.datetime.now, 
         description="Timestamp when the tool was last updated."
     )
+    is_subscribed: bool = Field(
+        default=False,
+        description="Indicates whether the current user is subscribed to this tool."
+    )
+    @classmethod
+    def failed(cls) -> "ToolMaster":
+        """Creates a failed Tool instance for testing."""
+        return cls(
+            tool_id=str(uuid.uuid4()),
+            tool_name="Failed Tool",
+            author_name="Unknown Author",
+            icon_link=None,
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now(),
+            subscriber_count=0,
+            is_subscribed=False,
+        )
 
     @classmethod
     def mock(cls) -> "ToolMaster":
@@ -42,14 +59,30 @@ class ToolMaster(BaseModel):
             author_name="Mock Author",
             icon_link="http://example.com/icon.png",
             created_at=dt.datetime.now(),
-            updated_at=dt.datetime.now()
+            updated_at=dt.datetime.now(),
+            subscriber_count=0,
+            is_subscribed=False,
         )
 
 class Tool(ToolMaster):
     description: str = Field(
         ..., 
         description="Description of the tool."
-    ) 
+    )
+
+    @classmethod
+    def failed(cls) -> "Tool":
+        """Creates a failed Tool instance for testing."""
+        return cls(
+            tool_id=str(uuid.uuid4()),
+            tool_name="Failed Tool",
+            author_name="Unknown Author",
+            description="This tool could not be retrieved.",
+            icon_link=None,
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now(),
+            subscriber_count=0,
+        )
 
     @classmethod
     def mock(cls) -> "Tool":
