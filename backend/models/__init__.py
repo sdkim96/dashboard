@@ -21,6 +21,10 @@ from backend.models.message import (
 )
 from backend.models.user import User
 from backend.models.history import History
+from backend.models.tools import (
+    Tool,
+    ToolMaster
+)
 from backend.models.api import (
     BaseRequest, 
     BaseResponse, 
@@ -31,5 +35,7 @@ from backend.models.api import (
     GetConversationResponse,
     GetAgentResponse, 
     PostSubscribeAgentResponse, 
-    PostGenerateCompletionRequest
+    PostGenerateCompletionRequest,
+    GetToolsResponse,
+    GetToolByIDResponse,
 )

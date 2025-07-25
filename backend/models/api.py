@@ -12,6 +12,7 @@ from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute, Ag
 from backend.models.llm import LLMModel, LLMModelRequest
 from backend.models.conversations import ConversationMaster
 from backend.models.message import MessageRequest, MessageResponse, Content
+from backend.models.tools import Tool, ToolMaster, ToolRequest
 
 class BaseRequest(BaseModel):
     pass
@@ -150,6 +151,11 @@ class PostGenerateCompletionRequest(BaseRequest):
             issuer="openai",
             deployment_id="deployment-123",
         )]
+    )
+    tools: List[ToolRequest] = Field(
+        ...,
+        description="List of tools to be used for generating the completion.",
+        examples=[[ToolRequest.mock()]]
     )
     messages: List[MessageRequest] = Field(
         ...,
@@ -343,3 +349,46 @@ class PutModifyAgentResponse(BaseResponse):
     PUT /api/v1/agent/agent_id Response model
     """
     pass
+
+
+class GetToolsResponse(BaseResponse):
+    """
+    GET /api/v1/tools Response model
+    """
+    tools: List[ToolMaster] = Field(
+        default_factory=list,
+        description="List of available tools.",
+        examples=[[
+            ToolMaster.mock()
+        ]]
+    )
+    total: int = Field(
+        ...,
+        description="Total number of tools matching the query.",
+        examples=[10]
+    )
+    page: int = Field(
+        description="Current page number.",
+        ge=1,
+        examples=[1]
+    )
+    size: int = Field(
+        description="Number of items per page.",
+        ge=1,
+        examples=[20]
+    )
+    has_next: bool = Field(
+        description="Whether there is a next page.",
+        examples=[True]
+    )
+
+
+class GetToolByIDResponse(BaseResponse):
+    """
+    GET /api/v1/tools/{tool_id} Response model
+    """
+    tool: Tool = Field(
+        ...,
+        description="Details of the requested tool.",
+        examples=[Tool.mock()]
+    )
