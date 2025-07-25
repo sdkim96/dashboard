@@ -15,6 +15,11 @@ export type Agent = {
      */
     agent_version: number;
     /**
+     * Department Name
+     * Department to which the agent belongs.
+     */
+    department_name: string;
+    /**
      * Name
      * Username of the user.
      */
@@ -29,6 +34,11 @@ export type Agent = {
      * Link to the user's icon or avatar, if available.
      */
     icon_link?: string | null;
+    /**
+     * Department Id
+     * ID of the department to which the agent belongs, if applicable.
+     */
+    department_id?: string | null;
 };
 
 /**
@@ -162,6 +172,43 @@ export type AgentPublish = {
      * Output schema for the agent's responses. if not provided, it will be raw string
      */
     output_schema?: Array<Attribute> | null;
+};
+
+/**
+ * AgentRecommendation
+ */
+export type AgentRecommendation = {
+    /**
+     * Department Name
+     * Name of the department to which the agent belongs.
+     */
+    department_name: 'Engineering' | 'Design' | 'Marketing' | 'Sales' | 'Support';
+    /**
+     * Agents
+     * List of agents associated with the recommendation.
+     */
+    agents?: Array<Agent>;
+};
+
+/**
+ * AgentRequest
+ */
+export type AgentRequest = {
+    /**
+     * Agent Id
+     * Unique identifier of the agent.
+     */
+    agent_id: string;
+    /**
+     * Agent Version
+     * Version of the agent.
+     */
+    agent_version: number;
+    /**
+     * Department Id
+     * ID of the department to which the agent belongs, if applicable.
+     */
+    department_id?: string | null;
 };
 
 /**
@@ -451,6 +498,183 @@ export type GetMeResponse = {
 };
 
 /**
+ * GetRecommendationByIDResponse
+ * GET /api/v1/recommendations/{recommendation_id} Response model
+ */
+export type GetRecommendationByIdResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Details of the requested recommendation.
+     */
+    recommendation: Recommendation;
+};
+
+/**
+ * GetRecommendationConversationResponse
+ * GET /api/v1/recommendations/{recommendation_id}/conversation Response model
+ */
+export type GetRecommendationConversationResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * List of conversations associated with the user.
+     */
+    conversation: ConversationMaster;
+    /**
+     * Messages
+     * List of messages in the conversation.
+     */
+    messages?: Array<MessageResponse>;
+};
+
+/**
+ * GetRecommendationsResponse
+ * GET /api/v1/recommendations Response model
+ */
+export type GetRecommendationsResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Total
+     * Total number of tools matching the query.
+     */
+    total: number;
+    /**
+     * Page
+     * Current page number.
+     */
+    page: number;
+    /**
+     * Size
+     * Number of items per page.
+     */
+    size: number;
+    /**
+     * Has Next
+     * Whether there is a next page.
+     */
+    has_next: boolean;
+    /**
+     * Recommendations
+     * List of recommended tools for the user.
+     */
+    recommendations?: Array<RecommendationMaster>;
+};
+
+/**
+ * GetToolByIDResponse
+ * GET /api/v1/tools/{tool_id} Response model
+ */
+export type GetToolByIdResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Details of the requested tool.
+     */
+    tool: Tool;
+};
+
+/**
+ * GetToolsResponse
+ * GET /api/v1/tools Response model
+ */
+export type GetToolsResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Tools
+     * List of available tools.
+     */
+    tools?: Array<ToolMaster>;
+    /**
+     * Total
+     * Total number of tools matching the query.
+     */
+    total: number;
+    /**
+     * Page
+     * Current page number.
+     */
+    page: number;
+    /**
+     * Size
+     * Number of items per page.
+     */
+    size: number;
+    /**
+     * Has Next
+     * Whether there is a next page.
+     */
+    has_next: boolean;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -536,6 +760,11 @@ export type MessageResponse = {
      */
     agent_id?: string | null;
     /**
+     * Tool Id
+     * ID of the tool that sent the message, if applicable.
+     */
+    tool_id?: string | null;
+    /**
      * Role
      * Role of the message sender, e.g., 'user' or 'assistant'.
      */
@@ -581,19 +810,14 @@ export type PostGenerateCompletionRequest = {
      */
     parent_message_id: string | null;
     /**
-     * Agent Id
-     * ID of the agent to use for generating the completion.
-     */
-    agent_id: string;
-    /**
-     * Agent Version
-     * Version of the agent to use for generating the completion.
-     */
-    agent_version?: number;
-    /**
      * Model Deployment ID to be used for generating the completion.
      */
     llm: LlmModelRequest;
+    /**
+     * Tools
+     * List of tools to be used for generating the completion.
+     */
+    tools: Array<ToolRequest>;
     /**
      * Messages
      * List of messages in the conversation for which the completion is requested.
@@ -635,10 +859,100 @@ export type PostPublishAgentResponse = {
 };
 
 /**
+ * PostRecommendationCompletionRequest
+ * POST /api/v1/recommendations/{recommendation_id}/completion Request model
+ */
+export type PostRecommendationCompletionRequest = {
+    /**
+     * Action
+     * Action to be performed for the completion request, e.g., 'next', 'retry', or 'variant'.
+     */
+    action: 'next' | 'retry' | 'variant';
+    /**
+     * Conversation Id
+     * ID of the conversation for which the completion is requested.
+     */
+    conversation_id: string;
+    /**
+     * Parent Message Id
+     * ID of the parent message for the completion request.
+     */
+    parent_message_id: string | null;
+    /**
+     * Model Deployment ID to be used for generating the completion.
+     */
+    llm: LlmModelRequest;
+    /**
+     * Agent to be used for generating the completion.
+     */
+    agent: AgentRequest;
+};
+
+/**
+ * PostRecommendationResponse
+ * POST /api/v1/recommendations Response model
+ */
+export type PostRecommendationResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Details of the created recommendation.
+     */
+    recommendation: Recommendation;
+};
+
+/**
+ * PostRescommendationRequest
+ * POST /api/v1/recommendations Request model
+ */
+export type PostRescommendationRequest = {
+    /**
+     * Work Details
+     * Details of the recommendation to be created.
+     */
+    work_details: string;
+};
+
+/**
  * PostSubscribeAgentResponse
  * POST /api/v1/agent/agent_id/subscribe Response model
  */
 export type PostSubscribeAgentResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+};
+
+/**
+ * PostSubscribeToolResponse
+ * POST /api/v1/tools/{tool_id}/subscribe Response model
+ */
+export type PostSubscribeToolResponse = {
     /**
      * Status
      * Status of the response, e.g., 'success' or 'error'.
@@ -687,6 +1001,186 @@ export type PutModifyAgentResponse = {
      * Unique identifier for the request, used for tracking and debugging.
      */
     request_id: string;
+};
+
+/**
+ * Recommendation
+ */
+export type Recommendation = {
+    /**
+     * Recommendation Id
+     * A unique identifier for the recommendation.
+     */
+    recommendation_id: string;
+    /**
+     * Work When
+     * The date and time when the recommendation is intended to be worked on.
+     */
+    work_when: string;
+    /**
+     * Work Where
+     * The location where the recommendation is intended to be worked on.
+     */
+    work_where: string;
+    /**
+     * Work Whom
+     * The person or team with whom the recommendation is intended to be worked on.
+     */
+    work_whom: string;
+    /**
+     * Work Details
+     * Detailed information about the work associated with the recommendation.
+     */
+    work_details: string;
+    /**
+     * Agents
+     * List of agents associated with the recommendation.
+     */
+    agents?: Array<AgentRecommendation>;
+};
+
+/**
+ * RecommendationMaster
+ */
+export type RecommendationMaster = {
+    /**
+     * Recommendation Id
+     * A unique identifier for the recommendation.
+     */
+    recommendation_id: string;
+    /**
+     * Title
+     * Title of the recommendation, unique across all recommendations.
+     */
+    title: string;
+    /**
+     * Description
+     * A brief description of the recommendation's content.
+     */
+    description: string;
+    /**
+     * Created At
+     * The date and time when the recommendation was created.
+     */
+    created_at?: string;
+    /**
+     * Updated At
+     * The date and time when the recommendation was last updated.
+     */
+    updated_at?: string;
+    /**
+     * Departments
+     * List of departments associated with the recommendation.
+     */
+    departments?: Array<string>;
+};
+
+/**
+ * Tool
+ */
+export type Tool = {
+    /**
+     * Tool Id
+     * Unique identifier for the tool.
+     */
+    tool_id: string;
+    /**
+     * Tool Name
+     * Name of the tool.
+     */
+    tool_name: string;
+    /**
+     * Author Name
+     * Name of the author who created the tool.
+     */
+    author_name: string;
+    /**
+     * Icon Link
+     * Link to the icon representing the tool. It can be a URL or a path.
+     */
+    icon_link?: string | null;
+    /**
+     * Subscriber Count
+     * Number of users subscribed to this tool.
+     */
+    subscriber_count?: number;
+    /**
+     * Created At
+     * Timestamp when the tool was created.
+     */
+    created_at?: string;
+    /**
+     * Updated At
+     * Timestamp when the tool was last updated.
+     */
+    updated_at?: string;
+    /**
+     * Is Subscribed
+     * Indicates whether the current user is subscribed to this tool.
+     */
+    is_subscribed?: boolean;
+    /**
+     * Description
+     * Description of the tool.
+     */
+    description: string;
+};
+
+/**
+ * ToolMaster
+ */
+export type ToolMaster = {
+    /**
+     * Tool Id
+     * Unique identifier for the tool.
+     */
+    tool_id: string;
+    /**
+     * Tool Name
+     * Name of the tool.
+     */
+    tool_name: string;
+    /**
+     * Author Name
+     * Name of the author who created the tool.
+     */
+    author_name: string;
+    /**
+     * Icon Link
+     * Link to the icon representing the tool. It can be a URL or a path.
+     */
+    icon_link?: string | null;
+    /**
+     * Subscriber Count
+     * Number of users subscribed to this tool.
+     */
+    subscriber_count?: number;
+    /**
+     * Created At
+     * Timestamp when the tool was created.
+     */
+    created_at?: string;
+    /**
+     * Updated At
+     * Timestamp when the tool was last updated.
+     */
+    updated_at?: string;
+    /**
+     * Is Subscribed
+     * Indicates whether the current user is subscribed to this tool.
+     */
+    is_subscribed?: boolean;
+};
+
+/**
+ * ToolRequest
+ */
+export type ToolRequest = {
+    /**
+     * Tool Id
+     * Unique identifier for the tool.
+     */
+    tool_id: string;
 };
 
 /**
@@ -770,6 +1264,104 @@ export type GetMeApiV1UserGetResponses = {
 
 export type GetMeApiV1UserGetResponse = GetMeApiV1UserGetResponses[keyof GetMeApiV1UserGetResponses];
 
+export type GetToolsApiV1ToolsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Search
+         */
+        search?: string | null;
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Size
+         */
+        size?: number;
+    };
+    url: '/api/v1/tools';
+};
+
+export type GetToolsApiV1ToolsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetToolsApiV1ToolsGetError = GetToolsApiV1ToolsGetErrors[keyof GetToolsApiV1ToolsGetErrors];
+
+export type GetToolsApiV1ToolsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GetToolsResponse;
+};
+
+export type GetToolsApiV1ToolsGetResponse = GetToolsApiV1ToolsGetResponses[keyof GetToolsApiV1ToolsGetResponses];
+
+export type GetToolByIdApiV1ToolsToolIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Tool Id
+         */
+        tool_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tools/{tool_id}';
+};
+
+export type GetToolByIdApiV1ToolsToolIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetToolByIdApiV1ToolsToolIdGetError = GetToolByIdApiV1ToolsToolIdGetErrors[keyof GetToolByIdApiV1ToolsToolIdGetErrors];
+
+export type GetToolByIdApiV1ToolsToolIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GetToolByIdResponse;
+};
+
+export type GetToolByIdApiV1ToolsToolIdGetResponse = GetToolByIdApiV1ToolsToolIdGetResponses[keyof GetToolByIdApiV1ToolsToolIdGetResponses];
+
+export type SubscribeToolApiV1ToolsToolIdSubscribePostData = {
+    body?: never;
+    path: {
+        /**
+         * Tool Id
+         */
+        tool_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tools/{tool_id}/subscribe';
+};
+
+export type SubscribeToolApiV1ToolsToolIdSubscribePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SubscribeToolApiV1ToolsToolIdSubscribePostError = SubscribeToolApiV1ToolsToolIdSubscribePostErrors[keyof SubscribeToolApiV1ToolsToolIdSubscribePostErrors];
+
+export type SubscribeToolApiV1ToolsToolIdSubscribePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PostSubscribeToolResponse;
+};
+
+export type SubscribeToolApiV1ToolsToolIdSubscribePostResponse = SubscribeToolApiV1ToolsToolIdSubscribePostResponses[keyof SubscribeToolApiV1ToolsToolIdSubscribePostResponses];
+
 export type NewConversationApiV1ConversationsNewPostData = {
     body?: never;
     path?: never;
@@ -831,6 +1423,31 @@ export type GetConversationApiV1ConversationsConversationIdGetResponses = {
 };
 
 export type GetConversationApiV1ConversationsConversationIdGetResponse = GetConversationApiV1ConversationsConversationIdGetResponses[keyof GetConversationApiV1ConversationsConversationIdGetResponses];
+
+export type GenerateCompletionApiV1CompletionPostData = {
+    body: PostGenerateCompletionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/completion';
+};
+
+export type GenerateCompletionApiV1CompletionPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GenerateCompletionApiV1CompletionPostError = GenerateCompletionApiV1CompletionPostErrors[keyof GenerateCompletionApiV1CompletionPostErrors];
+
+export type GenerateCompletionApiV1CompletionPostResponses = {
+    /**
+     * Streaming response containing the generated completion.
+     */
+    200: string;
+};
+
+export type GenerateCompletionApiV1CompletionPostResponse = GenerateCompletionApiV1CompletionPostResponses[keyof GenerateCompletionApiV1CompletionPostResponses];
 
 export type GetAvailableAgentsApiV1AgentsGetData = {
     body?: never;
@@ -993,30 +1610,134 @@ export type ModifyAgentApiV1AgentsAgentIdPutResponses = {
 
 export type ModifyAgentApiV1AgentsAgentIdPutResponse = ModifyAgentApiV1AgentsAgentIdPutResponses[keyof ModifyAgentApiV1AgentsAgentIdPutResponses];
 
-export type GenerateCompletionApiV1CompletionPostData = {
-    body: PostGenerateCompletionRequest;
+export type GetRecommendationsApiV1RecommendationsGetData = {
+    body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/completion';
+    url: '/api/v1/recommendations';
 };
 
-export type GenerateCompletionApiV1CompletionPostErrors = {
+export type GetRecommendationsApiV1RecommendationsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GetRecommendationsResponse;
+};
+
+export type GetRecommendationsApiV1RecommendationsGetResponse = GetRecommendationsApiV1RecommendationsGetResponses[keyof GetRecommendationsApiV1RecommendationsGetResponses];
+
+export type CreateRecommendationApiV1RecommendationsPostData = {
+    body: PostRescommendationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/recommendations';
+};
+
+export type CreateRecommendationApiV1RecommendationsPostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GenerateCompletionApiV1CompletionPostError = GenerateCompletionApiV1CompletionPostErrors[keyof GenerateCompletionApiV1CompletionPostErrors];
+export type CreateRecommendationApiV1RecommendationsPostError = CreateRecommendationApiV1RecommendationsPostErrors[keyof CreateRecommendationApiV1RecommendationsPostErrors];
 
-export type GenerateCompletionApiV1CompletionPostResponses = {
+export type CreateRecommendationApiV1RecommendationsPostResponses = {
     /**
-     * Streaming response containing the generated completion.
+     * Successful Response
      */
-    200: string;
+    200: PostRecommendationResponse;
 };
 
-export type GenerateCompletionApiV1CompletionPostResponse = GenerateCompletionApiV1CompletionPostResponses[keyof GenerateCompletionApiV1CompletionPostResponses];
+export type CreateRecommendationApiV1RecommendationsPostResponse = CreateRecommendationApiV1RecommendationsPostResponses[keyof CreateRecommendationApiV1RecommendationsPostResponses];
+
+export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Recommendation Id
+         */
+        recommendation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/recommendations/{recommendation_id}';
+};
+
+export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetError = GetRecommendationByIdApiV1RecommendationsRecommendationIdGetErrors[keyof GetRecommendationByIdApiV1RecommendationsRecommendationIdGetErrors];
+
+export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GetRecommendationByIdResponse;
+};
+
+export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponse = GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponses[keyof GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponses];
+
+export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostData = {
+    body: PostRecommendationCompletionRequest;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/recommendations/{agent_id}/completion';
+};
+
+export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostError = ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostErrors[keyof ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostErrors];
+
+export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/recommendations/{agent_id}/conversation';
+};
+
+export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetError = GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetErrors[keyof GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetErrors];
+
+export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GetRecommendationConversationResponse;
+};
+
+export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponse = GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponses[keyof GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponses];
 
 export type ClientOptions = {
     baseUrl: 'http://localhost:8000' | (string & {});

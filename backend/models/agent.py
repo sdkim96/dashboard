@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
+import backend._types as t
+
 class Attribute(BaseModel):
     """
     Represents an attribute for the output schema of an agent's response.
@@ -50,6 +52,128 @@ class Agent(BaseModel):
         description="Link to the user's icon or avatar, if available.",
         examples=["https://example.com/icon.png"]
     )
+    department_id: str | None = Field(
+        None,
+        description="ID of the department to which the agent belongs, if applicable.",
+        examples=["department-123"]
+    )
+
+    @classmethod
+    def mock(cls, type: t.DepartmentsLiteral) -> "Agent":
+        match type:
+            case "Engineering":
+                return cls(
+                    agent_id="agent-123",
+                    agent_version=1,
+                    department_name="Engineering",
+                    name="Engineering Agent",
+                    tags=["engineering", "ai"],
+                    icon_link="https://example.com/engineering_icon.png",
+                    department_id="engineering-123"
+                )
+            case "Design":
+                return cls(
+                    agent_id="agent-456",
+                    agent_version=1,
+                    department_name="Design",
+                    name="Design Agent",
+                    tags=["design", "ai"],
+                    icon_link="https://example.com/design_icon.png",
+                    department_id="design-456"
+                )
+            case "Marketing":
+                return cls(
+                    agent_id="agent-456",
+                    agent_version=1,
+                    department_name="Marketing",
+                    name="Marketing Agent",
+                    tags=["marketing", "ai"],
+                    icon_link="https://example.com/marketing_icon.png",
+                    department_id="marketing-456"
+                )
+            case "Sales":
+                return cls(
+                    agent_id="agent-789",
+                    agent_version=1,
+                    department_name="Sales",
+                    name="Sales Agent",
+                    tags=["sales", "ai"],
+                    icon_link="https://example.com/sales_icon.png",
+                    department_id="sales-789"
+                )
+            case "Support":
+                return cls(
+                    agent_id="agent-101",
+                    agent_version=1,
+                    department_name="Support",
+                    name="Support Agent",
+                    tags=["support", "ai"],
+                    icon_link="https://example.com/support_icon.png",
+                    department_id="support-101"
+                )
+
+class AgentRequest(BaseModel):
+    agent_id: str = Field(
+        ...,
+        description="Unique identifier of the agent.",
+        examples=["agent-123"]
+    )
+    agent_version: int = Field(
+        ...,
+        description="Version of the agent.",
+        examples=[1]
+    )
+    department_id: str | None = Field(
+        None,
+        description="ID of the department to which the agent belongs, if applicable.",
+        examples=["department-123"]
+    )
+
+    @classmethod
+    def mock(cls) -> "AgentRequest":
+        return cls(
+            agent_id="agent-123",
+            agent_version=1,
+            department_id="department-123"
+        )
+
+class AgentRecommendation(BaseModel):
+    department_name: t.DepartmentsLiteral = Field(
+        ...,
+        description="Name of the department to which the agent belongs.",
+    )
+    agents: List[Agent] = Field(
+        default_factory=list,
+        description="List of agents associated with the recommendation.",
+        examples=[[Agent.mock(type="Engineering")]]
+    )
+
+    @classmethod
+    def mocks(cls) -> List["AgentRecommendation"]:
+        return [
+            cls(
+                department_name="Engineering",
+                agents=[Agent.mock(type="Engineering")]
+            ),
+            cls(
+                department_name="Design",
+                agents=[Agent.mock(type="Design")]
+            ),
+            cls(
+                department_name="Marketing",
+                agents=[Agent.mock(type="Marketing")]
+            ),
+            cls(
+                department_name="Sales",
+                agents=[Agent.mock(type="Sales")]
+            ),
+            cls(
+                department_name="Support",
+                agents=[Agent.mock(type="Support")]
+            )
+            
+        ]
+
 
 class AgentMarketPlace(BaseModel):
     agent_id: str = Field(

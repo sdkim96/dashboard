@@ -44,6 +44,11 @@ class MessageResponse(BaseModel):
         description="ID of the agent that sent the message, if applicable.",
         examples=["agent-123"]
     )
+    tool_id: str | None = Field(
+        None,
+        description="ID of the tool that sent the message, if applicable.",
+        examples=["tool-123"]
+    )
     role: t.MessageRoleLiteral = Field(
         ...,
         description="Role of the message sender, e.g., 'user' or 'assistant'.",
@@ -69,6 +74,20 @@ class MessageResponse(BaseModel):
         description="Last updated timestamp of the message.",
         examples=["2023-10-01T12:00:00Z"]
     )
+
+    @classmethod
+    def mock(cls) -> "MessageResponse":
+        return cls(
+            message_id=str(uuid.uuid4()),
+            parent_message_id=None,
+            agent_id=None,
+            tool_id=None,
+            role='user',
+            content=Content(type='text', parts=["Mock message content"]),
+            llm=LLMModel.mock(),
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now()
+        )
 
 
 class Message(BaseModel):

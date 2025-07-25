@@ -1,9 +1,11 @@
 import { VStack, IconButton, Box, Tooltip } from '@chakra-ui/react'
-import { HiViewGrid, HiChat } from 'react-icons/hi'
+import { HiViewGrid, HiChat, HiArchive } from 'react-icons/hi'
+
+import type { ActiveTab } from '../types/activeTabs'
 
 interface SidebarProps {
-  activeTab: 'marketplace' | 'chat'
-  onTabChange: (tab: 'marketplace' | 'chat') => void
+  activeTab: ActiveTab
+  onTabChange: (tab: ActiveTab) => void
 }
 
 const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
@@ -19,6 +21,29 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
       alignItems="center"
     >
       <VStack spacing={1} width="100%">
+        <Tooltip label="Recommendations" placement="right" hasArrow>
+          <IconButton
+            aria-label="Recommendations"
+            icon={<HiArchive size={20} />}
+            variant="ghost"
+            size="lg"
+            width="48px"
+            height="48px"
+            borderRadius="md"
+            colorScheme={activeTab === 'recommendations' ? 'blue' : 'gray'}
+            bg={activeTab === 'recommendations' ? 'blue.100' : 'transparent'}
+            color={activeTab === 'recommendations' ? 'blue.600' : 'gray.600'}
+            _hover={{
+              bg: activeTab === 'recommendations' ? 'blue.200' : 'gray.100',
+              color: activeTab === 'recommendations' ? 'blue.700' : 'gray.700'
+            }}
+            _active={{
+              bg: activeTab === 'recommendations' ? 'blue.200' : 'gray.200'
+            }}
+            onClick={() => onTabChange('recommendations')}
+          />
+        </Tooltip>
+
         <Tooltip label="Marketplace" placement="right" hasArrow>
           <IconButton
             aria-label="Marketplace"

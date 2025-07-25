@@ -31,6 +31,16 @@ class ConversationMaster(BaseModel):
     )
 
     @classmethod
+    def mock(cls) -> "ConversationMaster":
+        return cls(
+            conversation_id=str(uuid.uuid4()),
+            title="Mock Conversation",
+            icon=None,
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now()
+        )
+
+    @classmethod
     def failed(cls):
         return cls(
             conversation_id="",

@@ -55,6 +55,9 @@ class Conversation(ConversationBase):
     icon: Mapped[Optional[str]] = mapped_column(
         doc="Link to the icon representing the conversation. It can be a URL or a path"
     )
+    conversation_type: Mapped[str] = mapped_column(
+        doc="Type of the conversation, e.g., 'chat', 'recommendation'."
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the conversation was created.",
     )
@@ -82,6 +85,9 @@ class Message(ConversationBase):
     agent_id: Mapped[Optional[str]] = mapped_column(
         doc="The ID of the agent that sent the message. It can be None if the message is from a user."
     )
+    tool_id: Mapped[Optional[str]] = mapped_column(
+        doc="The ID of the tool used to generate the message, if applicable."
+    )
     role: Mapped[str] = mapped_column(
         doc="Role of the message sender, e.g., 'user' or 'assistant'."
     )
@@ -99,7 +105,7 @@ class Message(ConversationBase):
     )
     
     def __repr__(self):
-        return f"<Message(id={self.message_id}, conversation_id={self.conversation_id})>"
+        return f"<Message(message_id={self.message_id}, conversation_id={self.conversation_id})>"
     
     
 

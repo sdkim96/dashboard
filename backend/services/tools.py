@@ -111,24 +111,11 @@ def get_tool_by_id(
     User = user_tbl.User
 
     subscriber_count_subq = (
-        select(
-            Subscriber.tool_id,
-            func.count(Subscriber.user_id).label("subscriber_count")
-        )
-        .group_by(Subscriber.tool_id)
-        .subquery()
+        select(func.count())
+        .select_from(Subscriber)
+        .where(Subscriber.tool_id == tool_id)
+        .scalar_subquery()
     )
-
-    user_subscription_subq = (
-        select(
-            Subscriber.tool_id,
-            literal(True).label("is_subscribed")
-        )
-        .where(Subscriber.user_id == user_profile.user_id)
-
-        .subquery()
-    )
-
     
     stmt = (
         select(
@@ -136,29 +123,23 @@ def get_tool_by_id(
             Tool.tool_name,
             User.username.label("author_name"),
             Tool.icon_link,
-            func.coalesce(subscriber_count_subq.c.subscriber_count, 0).label("subscriber_count"),
             Tool.created_at,
             Tool.updated_at,
-            func.coalesce(user_subscription_subq.c.is_subscribed, False).label("is_subscribed"),
-            Tool.description
+            Tool.description,
+            (Subscriber.tool_id.is_not(None)).label("is_subscribed"),
+            subscriber_count_subq.label("subscriber_count")
         )
+        .join(User, Tool.author_id == User.user_id)
         .outerjoin(
-            subscriber_count_subq,
-            Tool.tool_id == subscriber_count_subq.c.tool_id
+            Subscriber, 
+            (Subscriber.tool_id == Tool.tool_id) & 
+            (Subscriber.user_id == user_profile.user_id)
         )
-        .outerjoin(
-            User,
-            Tool.author_id == User.user_id
+        .where(
+            Tool.is_deleted == False,
+            Tool.tool_id == tool_id
         )
     )
-    
-    stmt = stmt.outerjoin(
-        user_subscription_subq,
-        Tool.tool_id == user_subscription_subq.c.tool_id
-    )
-    
-    stmt = stmt.where(Tool.is_deleted == False).where(Tool.tool_id == tool_id)
-    
 
     lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
     try:
@@ -176,6 +157,7 @@ def get_tool_by_id(
         author_name=result.author_name,
         icon_link=result.icon_link,
         subscriber_count=result.subscriber_count,
+        is_subscribed=result.is_subscribed,
         description=result.description,
         created_at=result.created_at,
         updated_at=result.updated_at,

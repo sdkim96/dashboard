@@ -43,5 +43,12 @@ from backend.models.api import (
     GetToolsResponse,
     GetToolByIDResponse,
     GetToolsRequest,
-    PostSubscribeToolResponse
+    PostSubscribeToolResponse,
+    GetRecommendationsResponse,
+    GetRecommendationByIDResponse,
+    PostRecommendationResponse,
+    PostRescommendationRequest,
+    GetRecommendationConversationResponse,
+    PostRecommendationCompletionRequest,
+    
 )

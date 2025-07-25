@@ -22,11 +22,14 @@ def init_apis(app: FastAPI) -> None:
     from backend.apis.tools import (
         TOOLS,
     )
+    from backend.apis.recommend import (
+        RECOMMENDATIONS,
+    )
 
     app.include_router(USER)
     app.include_router(TOOLS)
-    app.include_router(AGENTS)
     app.include_router(CONVERSATIONS)
     app.include_router(COMPLETION)
-    
-    
+
+    app.include_router(AGENTS)
+    app.include_router(RECOMMENDATIONS)

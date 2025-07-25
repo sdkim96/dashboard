@@ -8,11 +8,12 @@ import backend._types as t
 import backend.constants as c
 
 from backend.models.user import User
-from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute, AgentMarketPlace
+from backend.models.agent import Agent, AgentDetail, AgentPublish, Attribute, AgentMarketPlace, AgentRequest
 from backend.models.llm import LLMModel, LLMModelRequest
 from backend.models.conversations import ConversationMaster
 from backend.models.message import MessageRequest, MessageResponse, Content
 from backend.models.tools import Tool, ToolMaster, ToolRequest
+from backend.models.recommendations import RecommendationMaster, Recommendation
 
 class BaseRequest(BaseModel):
     pass
@@ -133,17 +134,6 @@ class PostGenerateCompletionRequest(BaseRequest):
         description="ID of the parent message for the completion request.",
         examples=[str(uuid.uuid4())]
     )
-    agent_id: str = Field(
-        ...,
-        description="ID of the agent to use for generating the completion.",
-        examples=["agent-123"]
-    )
-    agent_version: int = Field(
-        default=0,
-        ge=0,
-        description="Version of the agent to use for generating the completion.",
-        examples=[1]
-    )
     llm: LLMModelRequest = Field(
         ...,
         description="Model Deployment ID to be used for generating the completion.",
@@ -196,6 +186,51 @@ class GetToolsRequest(BaseRequest):
         return (self.page - 1) * self.size
 
 
+class PostRescommendationRequest(BaseRequest):
+    """
+    POST /api/v1/recommendations Request model
+    """
+    work_details: str = Field(
+        ...,
+        description="Details of the recommendation to be created.",
+        examples=[
+            "This is a sample recommendation."
+        ]
+    )
+
+class PostRecommendationCompletionRequest(BaseRequest):
+    """
+    POST /api/v1/recommendations/{recommendation_id}/completion Request model
+    """
+    action: t.CompletionActionLiteral = Field(
+        ...,
+        description="Action to be performed for the completion request, e.g., 'next', 'retry', or 'variant'.",
+        examples=["next", "retry", "variant"]
+    )
+    conversation_id: str = Field(
+        ...,
+        description="ID of the conversation for which the completion is requested.",
+        examples=[str(uuid.uuid4())]
+    )
+    parent_message_id: str | None = Field(
+        ...,
+        description="ID of the parent message for the completion request.",
+        examples=[str(uuid.uuid4())]
+    )
+    llm: LLMModelRequest = Field(
+        ...,
+        description="Model Deployment ID to be used for generating the completion.",
+        examples=[LLMModelRequest(
+            issuer="openai",
+            deployment_id="deployment-123",
+        )]
+    )
+    agent: AgentRequest = Field(
+        ...,
+        description="Agent to be used for generating the completion.",
+        examples=[AgentRequest.mock()]
+    )   
+
 
 ########################
 ## 2. Response Models ##
@@ -233,15 +268,7 @@ class GetMeResponse(BaseResponse):
     agents: List[Agent] = Field(
         default_factory=list,
         description="List of agent IDs that the user is subscribed to.",
-        examples=[[
-            Agent(
-                agent_id="agent-123", 
-                agent_version=1,
-                department_name="Engineering",
-                name="Example Agent", 
-                icon_link=None, 
-                tags=["cool", "good"]
-            )]]
+        examples=[[Agent.mock(type="Engineering")]]
     )
     llms: List[LLMModel] = Field(
         default_factory=list,
@@ -431,3 +458,122 @@ class PostSubscribeToolResponse(BaseResponse):
     POST /api/v1/tools/{tool_id}/subscribe Response model
     """
     pass
+
+
+class GetRecommendationsResponse(BaseResponse):
+    """
+    GET /api/v1/recommendations Response model
+    """
+    total: int = Field(
+        ...,
+        description="Total number of tools matching the query.",
+        examples=[10]
+    )
+    page: int = Field(
+        description="Current page number.",
+        ge=1,
+        examples=[1]
+    )
+    size: int = Field(
+        description="Number of items per page.",
+        ge=1,
+        examples=[20]
+    )
+    has_next: bool = Field(
+        description="Whether there is a next page.",
+        examples=[True]
+    )
+    recommendations: List[RecommendationMaster] = Field(
+        default_factory=list,
+        description="List of recommended tools for the user.",
+        examples=[[
+            RecommendationMaster.mock()
+        ]]
+    )
+
+    @classmethod
+    def mock(cls) -> "GetRecommendationsResponse":
+        return cls(
+            status="success",
+            message="Recommendations retrieved successfully.",
+            request_id=str(uuid.uuid4()),
+            recommendations=[RecommendationMaster.mock()],
+            total=1,
+            page=1,
+            size=20,
+            has_next=False
+        )
+    
+
+class GetRecommendationByIDResponse(BaseResponse):
+    """
+    GET /api/v1/recommendations/{recommendation_id} Response model
+    """
+    recommendation: Recommendation = Field(
+        ...,
+        description="Details of the requested recommendation.",
+        examples=[Recommendation.mock()]
+    )
+    
+    @classmethod
+    def mock(cls) -> "GetRecommendationByIDResponse":
+        return cls(
+            status="success",
+            message="Recommendation retrieved successfully.",
+            request_id=str(uuid.uuid4()),
+            recommendation=Recommendation.mock()
+        )
+    
+class PostRecommendationResponse(BaseResponse):
+    """
+    POST /api/v1/recommendations Response model
+    """
+    recommendation: Recommendation = Field(
+        ...,
+        description="Details of the created recommendation.",
+        examples=[Recommendation.mock()]
+    )
+    
+    @classmethod
+    def mock(cls) -> "PostRecommendationResponse":
+        return cls(
+            status="success",
+            message="Recommendation created successfully.",
+            request_id=str(uuid.uuid4()),
+            recommendation=Recommendation.mock()
+        )
+    
+
+
+class GetRecommendationConversationResponse(BaseResponse):
+    """
+    GET /api/v1/recommendations/{recommendation_id}/conversation Response model
+    """
+    conversation: ConversationMaster = Field(
+        ...,
+        description="List of conversations associated with the user.",
+        examples=[
+            ConversationMaster(
+                conversation_id=str(uuid.uuid4()),
+                title="Cool Conversation",
+                icon="😎",
+                created_at=dt.datetime.now(),
+                updated_at=dt.datetime.now()
+            )
+        ]
+    )
+    
+    messages: List[MessageResponse] = Field(
+        default_factory=list,
+        description="List of messages in the conversation.",
+    )
+
+    @classmethod
+    def mock(cls) -> "GetRecommendationConversationResponse":
+        return cls(
+            status="success",
+            message="Recommendation conversation retrieved successfully.",
+            request_id=str(uuid.uuid4()),
+            conversation=ConversationMaster.mock(),
+            messages=[MessageResponse.mock()]
+        )

@@ -1,0 +1,1 @@
+export type ActiveTab = 'marketplace' | 'chat' | 'recommendations'

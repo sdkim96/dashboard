@@ -14,3 +14,11 @@ OutputSchemaLiteral = Literal['str', 'int', 'float', 'bool']
 MessageRoleLiteral = Literal['user', 'assistant']
 MessageContentType = Literal['text', 'image', 'file']
 CompletionActionLiteral = Literal['next', 'retry', 'variant']
+
+DepartmentsLiteral = Literal[
+    'Engineering', 
+    'Design', 
+    'Marketing', 
+    'Sales', 
+    'Support'
+]

@@ -28,6 +28,16 @@ class LLMModel(BaseModel):
         description="Link to the user's icon or avatar, if available.",
         examples=["https://example.com/icon.png"]
         )
+    
+    @classmethod
+    def mock(cls) -> "LLMModel":
+        return cls(
+            issuer="openai",
+            deployment_id="deployment-123",
+            name="Example Model",
+            description="This is an example model.",
+            icon_link=None
+        )
 
 class LLMModelResponse(LLMModel):
     """

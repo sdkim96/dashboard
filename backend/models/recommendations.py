@@ -1,9 +1,10 @@
 import datetime as dt
 import uuid
+from typing import List
 
 from pydantic import BaseModel, Field
 
-from backend.models.agent import Agent
+from backend.models.agent import Agent, AgentRecommendation
 
 
 class RecommendationMaster(BaseModel):
@@ -39,6 +40,17 @@ class RecommendationMaster(BaseModel):
         examples=[["Marketing", "Sales"]]
     )
 
+    @classmethod
+    def mock(cls) -> "RecommendationMaster":
+        return cls(
+            recommendation_id=str(uuid.uuid4()),
+            title="New Launching Festival",
+            description="A festival to celebrate the launch of new products.",
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now(),
+            departments=["Engineering", "Design"]
+        )
+
 
 class Recommendation(BaseModel):
     
@@ -67,18 +79,22 @@ class Recommendation(BaseModel):
         description="Detailed information about the work associated with the recommendation.",
         examples=["Details about the work to be done."]
     )
-    agents: list[Agent] = Field(
+    agents: List[AgentRecommendation] = Field(
         default_factory=list,
         description="List of agents associated with the recommendation.",
         examples=[
-            [
-                Agent(
-                    agent_id="agent1", name="Agent One", agent_version=1, icon_link="https://example.com/icon1.png", department_name="Engineering"
-                ),
-                Agent(
-                    agent_id="agent2", name="Agent Two", agent_version=2, icon_link="https://example.com/icon2.png", department_name="Marketing"
-                )
-            ]
+            AgentRecommendation.mocks()
         ]
     )
+
+    @classmethod
+    def mock(cls) -> "Recommendation":
+        return cls(
+            recommendation_id=str(uuid.uuid4()),
+            work_when=dt.datetime.now(),
+            work_where="Head Office",
+            work_whom="John Doe",
+            work_details="Details about the work to be done.",
+            agents=AgentRecommendation.mocks()
+        )
     
