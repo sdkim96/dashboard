@@ -19,9 +19,14 @@ def init_apis(app: FastAPI) -> None:
     from backend.apis.conversations import (
         CONVERSATIONS,
     )
+    from backend.apis.tools import (
+        TOOLS,
+    )
 
     app.include_router(USER)
-    app.include_router(CONVERSATIONS)
+    app.include_router(TOOLS)
     app.include_router(AGENTS)
+    app.include_router(CONVERSATIONS)
     app.include_router(COMPLETION)
+    
     

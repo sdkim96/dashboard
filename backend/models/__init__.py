@@ -25,6 +25,10 @@ from backend.models.recommendations import (
     RecommendationMaster, 
     Recommendation, 
 )
+from backend.models.tools import (
+    Tool,
+    ToolMaster
+)
 from backend.models.api import (
     BaseRequest, 
     BaseResponse, 
@@ -35,5 +39,9 @@ from backend.models.api import (
     GetConversationResponse,
     GetAgentResponse, 
     PostSubscribeAgentResponse, 
-    PostGenerateCompletionRequest
+    PostGenerateCompletionRequest,
+    GetToolsResponse,
+    GetToolByIDResponse,
+    GetToolsRequest,
+    PostSubscribeToolResponse
 )
