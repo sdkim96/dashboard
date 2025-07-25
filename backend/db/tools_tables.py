@@ -1,5 +1,4 @@
 import datetime as dt
-from typing import Optional
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import mapped_column, DeclarativeBase, Mapped
@@ -8,28 +7,60 @@ class ToolBase(DeclarativeBase):
     pass
 
 class Tool(ToolBase):
-    __tablename__ = 'tool'
+    __tablename__ = 'tools'
     
     tool_id: Mapped[str] = mapped_column(
         primary_key=True,
-        doc="A unique identifier for the tool."
     )
-    name: Mapped[str] = mapped_column(
-        doc="Name of the tool, unique across all tools."
+    author_id: Mapped[str] = mapped_column(
+        nullable=False,
+        doc="Foreign key referencing the user who created the tool."
     )
-    description: Mapped[str] = mapped_column(
-        doc="A brief description of the tool's functionality."
+    tool_name: Mapped[str] = mapped_column(
+        nullable=False, 
+        doc="Name of the tool."
     )
-    is_active: Mapped[bool] = mapped_column(
-        default=True,
-        doc="Flag indicating whether the tool is active. Default is True."
+    description: Mapped[str] = mapped_column(   
+        nullable=False, 
+        doc="Description of the tool."
+    )
+    icon_link: Mapped[str] = mapped_column(
+        nullable=True,
+        doc="Link to the icon representing the tool. It can be a URL or a path."
+    )
+    is_deleted: Mapped[bool] = mapped_column(
+        default=False,
+        doc="Flag indicating whether the tool is deleted. Default is False."
+    )
+    created_at: Mapped[dt.datetime] = mapped_column()
+    updated_at: Mapped[dt.datetime] = mapped_column()
+
+    def __repr__(self):
+        return f"<Tool(tool_id={self.tool_id}, name={self.tool_name})>"
+    
+
+class ToolSubscriber(ToolBase):
+    __tablename__ = 'tool_subscriber'
+    
+    tool_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc="Foreign key referencing the tool this subscription belongs to."
+    )
+    user_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc="Foreign key referencing the user who subscribed to the tool."
     )
     created_at: Mapped[dt.datetime] = mapped_column(
-        doc="Timestamp when the tool was created.",
+        default=dt.datetime.now,
+        doc="Timestamp when the subscription was created."
     )
-    updated_at: Mapped[dt.datetime] = mapped_column(
-        doc="Timestamp when the tool was last updated.",
-    )
-    
+
     def __repr__(self):
-        return f"<Tool(id={self.tool_id}, name={self.name})>"
+        return f"<ToolSubscriber(tool_id={self.tool_id}, user_id={self.user_id})>"
+    
+
+def create_tool_all(engine: Engine):
+    ToolBase.metadata.create_all(engine)
+
+def drop_tool_all(engine: Engine):
+    ToolBase.metadata.drop_all(engine)
