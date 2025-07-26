@@ -30,8 +30,36 @@ import {
   Icon,
   Center,
   useDisclosure,
+  Progress,
+  Fade,
+  ScaleFade,
+  SlideFade,
 } from '@chakra-ui/react';
-import { FiSend, FiSearch, FiPlus, FiMessageSquare, FiCalendar, FiClock, FiUser, FiMapPin } from 'react-icons/fi';
+import { keyframes } from '@emotion/react';
+import { 
+  FiSend, 
+  FiSearch, 
+  FiPlus, 
+  FiMessageSquare, 
+  FiCalendar, 
+  FiClock, 
+  FiUser, 
+  FiMapPin,
+  FiZap,
+  FiCommand,
+  FiLayers,
+  FiRefreshCw,
+  FiTarget,
+  FiBriefcase,
+  FiUsers,
+  FiTrendingUp,
+  FiAward,
+  FiBookOpen,
+  FiHeart,
+  FiCompass,
+  FiCpu,
+  FiGlobe,
+} from 'react-icons/fi';
 import { 
   getRecommendationsApiV1RecommendationsGet,
   getRecommendationByIdApiV1RecommendationsRecommendationIdGet,
@@ -47,14 +75,54 @@ import type {
   PostRecommendationCompletionRequest,
 } from '../client';
 
+// 로딩 애니메이션 키프레임
+const pulse = keyframes`
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+`;
 
-type Departments = 'Engineering' | 'Design' | 'Marketing' | 'Sales' | 'Support';
+const float = keyframes`
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+`;
+
+const slideIn = keyframes`
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+`;
+
+// 로딩 중 표시할 팁들
+const LOADING_TIPS = [
+  { icon: FiTarget, text: "최적의 담당자를 찾고 있어요", color: "blue.400" },
+  { icon: FiBriefcase, text: "업무 내용을 분석하고 있어요", color: "purple.400" },
+  { icon: FiUsers, text: "각 부서별 전문가를 매칭하고 있어요", color: "green.400" },
+  { icon: FiTrendingUp, text: "가장 효율적인 워크플로우를 설계하고 있어요", color: "orange.400" },
+  { icon: FiAward, text: "최고의 결과를 위해 준비하고 있어요", color: "teal.400" },
+];
+
+// 부서별 아이콘 매핑
+const DEPARTMENT_ICONS: Record<string, any> = {
+  Common: FiCommand,
+  HR: FiUsers,
+  Sales: FiTrendingUp,
+  Marketing: FiZap,
+  CustomerSupport: FiHeart,
+  Finance: FiBriefcase,
+  Planning: FiCompass,
+  BusinessSupport: FiLayers,
+  ProductDevelopment: FiCpu,
+  InternationalSales: FiGlobe,
+};
+
+type Departments = 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales';
+
 const RecommendationChat = () => {
   const [recommendations, setRecommendations] = useState<RecommendationMaster[]>([]);
   const [selectedRecommendation, setSelectedRecommendation] = useState<RecommendationMaster | null>(null);
   const [recommendationDetail, setRecommendationDetail] = useState<Recommendation | null>(null);
   const [searchResults, setSearchResults] = useState<{[key: string]: Agent[]}>({});
-
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -64,35 +132,31 @@ const RecommendationChat = () => {
   const [isSending, setIsSending] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
   const [showLanding, setShowLanding] = useState(true);
-  
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
   
   const toast = useToast();
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const hoverBg = useColorModeValue('gray.50', 'gray.700');
-  const sidebarBg = useColorModeValue('#F7FAFC', 'gray.900');
+  const sidebarBg = useColorModeValue('gray.50', 'gray.900');
   const messageBg = useColorModeValue('gray.100', 'gray.700');
   const userMessageBg = useColorModeValue('blue.500', 'blue.600');
-  const cardHoverShadow = useColorModeValue('lg', 'dark-lg');
+  const cardHoverShadow = useColorModeValue('xl', 'dark-lg');
 
-  const DEPARTMENTS_STYLES = {
-    Engineering: {
-      id: "Engineering",
+  const DEPARTMENTS_STYLES: Record<Departments, { id: string; color: string; name: string; bgGradient: string }> = {
+    Common: {
+      id: "Common",
       color: 'blue',
-      name: 'Engineering',
+      name: 'Common',
       bgGradient: 'linear(to-r, blue.400, blue.600)',
     },
-    Design: {
-      id: "Design",
+    HR: {
+      id: "HR",
       color: 'green',
-      name: 'Design',
+      name: 'HR',
       bgGradient: 'linear(to-r, green.400, green.600)',
-    },
-    Marketing: {
-      id: "Marketing",
-      color: 'purple',
-      name: 'Marketing',
-      bgGradient: 'linear(to-r, purple.400, purple.600)',
     },
     Sales: {
       id: "Sales",
@@ -100,18 +164,78 @@ const RecommendationChat = () => {
       name: 'Sales',
       bgGradient: 'linear(to-r, orange.400, orange.600)',
     },
-    Support: {
-      id: "Support",
+    Marketing: {
+      id: "Marketing",
+      color: 'purple',
+      name: 'Marketing',
+      bgGradient: 'linear(to-r, purple.400, purple.600)',
+    },
+    CustomerSupport: {
+      id: "CustomerSupport",
       color: 'teal',
-      name: 'Support',
+      name: 'Customer Support',
       bgGradient: 'linear(to-r, teal.400, teal.600)',
     },
-  }
+    Finance: {
+      id: "Finance",
+      color: 'yellow',
+      name: 'Finance',
+      bgGradient: 'linear(to-r, yellow.400, yellow.600)',
+    },
+    Planning: {
+      id: "Planning",
+      color: 'pink',
+      name: 'Planning',
+      bgGradient: 'linear(to-r, pink.400, pink.600)',
+    },
+    BusinessSupport: {
+      id: "BusinessSupport",
+      color: 'cyan',
+      name: 'Business Support',
+      bgGradient: 'linear(to-r, cyan.400, cyan.600)',
+    },
+    ProductDevelopment: {
+      id: "ProductDevelopment",
+      color: 'red',
+      name: 'Product Development',
+      bgGradient: 'linear(to-r, red.400, red.600)',
+    },
+    InternationalSales: {
+      id: "InternationalSales",
+      color: 'purple',
+      name: 'International Sales',
+      bgGradient: 'linear(to-r, purple.400, purple.600)',
+    },  
+  };
 
   // 추천 목록 불러오기
   useEffect(() => {
     fetchRecommendations();
   }, []);
+
+  // 로딩 중 팁 로테이션
+  useEffect(() => {
+    if (isLoadingDetail) {
+      const tipInterval = setInterval(() => {
+        setCurrentTipIndex((prev) => (prev + 1) % LOADING_TIPS.length);
+      }, 2000);
+
+      const progressInterval = setInterval(() => {
+        setLoadingProgress((prev) => {
+          if (prev >= 90) return prev;
+          return prev + Math.random() * 15;
+        });
+      }, 300);
+
+      return () => {
+        clearInterval(tipInterval);
+        clearInterval(progressInterval);
+      };
+    } else {
+      setLoadingProgress(0);
+      setCurrentTipIndex(0);
+    }
+  }, [isLoadingDetail]);
 
   const fetchRecommendations = async () => {
     try {
@@ -134,20 +258,32 @@ const RecommendationChat = () => {
   // 추천 상세 정보 불러오기
   const fetchRecommendationDetail = async (recommendationId: string) => {
     try {
+      setIsLoadingDetail(true);
+      setLoadingProgress(0);
+      
       const response = await getRecommendationByIdApiV1RecommendationsRecommendationIdGet({
         path: { recommendation_id: recommendationId }
       });
       
       if (response.data) {
         setShowLanding(false);
+        setLoadingProgress(100);
+        
+        // 로딩 완료 후 잠시 대기
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // 각 부서별 에이전트 표시
         const AgentCards: {[key in Departments]: Agent[]} = {
-          Engineering: [],
-          Design: [],
-          Marketing: [],
+          Common: [],
+          HR: [],
           Sales: [],
-          Support: [],
+          Marketing: [],
+          CustomerSupport: [],
+          Finance: [],
+          Planning: [],
+          BusinessSupport: [],
+          ProductDevelopment: [],
+          InternationalSales: [],
         };
         for (const agentRec of response.data.recommendation?.agents || []) {
           const deptId = agentRec.department_name as Departments;
@@ -167,6 +303,8 @@ const RecommendationChat = () => {
         status: 'error',
         duration: 3000,
       });
+    } finally {
+      setIsLoadingDetail(false);
     }
   };
 
@@ -174,7 +312,6 @@ const RecommendationChat = () => {
   const handleHistoryClick = (rec: RecommendationMaster) => {
     setSelectedRecommendation(rec);
     fetchRecommendationDetail(rec.recommendation_id);
-
   };
 
   // 검색 처리
@@ -182,6 +319,8 @@ const RecommendationChat = () => {
     if (!searchQuery.trim()) return;
     
     setShowLanding(false);
+    setIsLoadingDetail(true);
+    setLoadingProgress(0);
     
     // 새로운 추천 생성
     try {
@@ -190,18 +329,25 @@ const RecommendationChat = () => {
       });
       
       if (response.data?.recommendation) {
+        setLoadingProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         fetchRecommendations();
 
         const AgentCards: {[key in Departments]: Agent[]} = {
-          Engineering: [],
-          Design: [],
-          Marketing: [],
+          Common: [],
+          HR: [],
           Sales: [],
-          Support: [],
+          Marketing: [],
+          CustomerSupport: [],
+          Finance: [],
+          Planning: [],
+          BusinessSupport: [],
+          ProductDevelopment: [],
+          InternationalSales: [],
         };
 
         for (const agentRec of response.data.recommendation?.agents || []) {
-          
           const deptId = agentRec.department_name as Departments;
           if (AgentCards[deptId] && agentRec.agents) {
             AgentCards[deptId].push(...agentRec.agents.map(agent => ({
@@ -219,6 +365,8 @@ const RecommendationChat = () => {
         status: 'error',
         duration: 3000,
       });
+    } finally {
+      setIsLoadingDetail(false);
     }
   };
 
@@ -261,7 +409,7 @@ const RecommendationChat = () => {
         agent: {
           agent_id: selectedAgent.agent_id,
           agent_version: selectedAgent.agent_version,
-          department_id: selectedAgent.department_id || null
+          department_id: selectedAgent.department_name || null
         }
       };
 
@@ -316,83 +464,204 @@ const RecommendationChat = () => {
 
   return (
     <Flex h="100vh" overflow="hidden">
-      {/* 왼쪽 사이드바 */}
-      <Box w="280px" bg={sidebarBg} borderRightWidth="1px" borderColor={borderColor}>
-        <VStack h="full" spacing={0}>
-          {/* 새 작업 시작 버튼 */}
+      {/* 왼쪽 사이드바 - 라이트 테마 with 모던 하이라이트 */}
+      <Box 
+        w="280px" 
+        bg={sidebarBg} 
+        borderRightWidth="1px" 
+        borderColor={borderColor}
+        position="relative"
+        overflow="hidden"
+      >
+        {/* 배경 그라데이션 효과 - 더 은은하게 */}
+        <Box
+          position="absolute"
+          top="-50%"
+          right="-50%"
+          w="200%"
+          h="200%"
+          bgGradient="radial(purple.100 0%, transparent 70%)"
+          opacity="0.3"
+          pointerEvents="none"
+        />
+        
+        <VStack h="full" spacing={0} position="relative">
+          {/* 새 작업 시작 버튼 - 그라데이션 하이라이트 */}
           <Box p={4} w="full">
             <Button
-              leftIcon={<FiPlus />}
-              bgGradient="linear(to-r, purple.500, purple.600)"
-              color="white"
-              _hover={{ bgGradient: "linear(to-r, purple.600, purple.700)" }}
-              w="full"
-              size="md"
-              borderRadius="lg"
+              bg="white"
+              color="gray.700"
+              border="1px solid"
+              borderColor="gray.200"
               boxShadow="sm"
+              _hover={{
+                bg: "white",
+                borderColor: "transparent",
+                boxShadow: "0 4px 20px rgba(138, 97, 255, 0.15)",
+                transform: "translateY(-2px)",
+                // 텍스트(span)와 아이콘(svg) 모두 타겟팅
+                "& span, & svg": {
+                  bgGradient: "linear(to-r, purple.400, pink.400, blue.400)",
+                  bgClip: "text",
+                  color: "transparent"
+                }
+              }}
+              _active={{
+                transform: "translateY(0)",
+                boxShadow: "0 2px 10px rgba(138, 97, 255, 0.1)"
+              }}
+              w="full"
+              h="48px"
+              fontSize="md"
+              fontWeight="medium"
+              borderRadius="xl"
+              transition="all 0.2s"
+              position="relative"
+              overflow="hidden"
               onClick={() => {
                 setShowLanding(true);
                 setSearchResults({});
                 setSelectedRecommendation(null);
                 setRecommendationDetail(null);
               }}
+              _before={{
+                content: '""',
+                position: "absolute",
+                top: "-2px",
+                left: "-2px",
+                right: "-2px",
+                bottom: "-2px",
+                bgGradient: "linear(to-r, purple.400, pink.400, blue.400)",
+                borderRadius: "xl",
+                opacity: 0,
+                transition: "opacity 0.3s",
+                zIndex: -1
+              }}
             >
-              새 작업 시작
+              <span>새 작업 시작</span>
             </Button>
           </Box>
 
-          {/* 추천 히스토리 */}
+          <Divider borderColor={borderColor} />
+
+          {/* 추천 히스토리 헤더 */}
+          <Box px={4} py={3}>
+            <Text color="gray.500" fontSize="xs" fontWeight="semibold" letterSpacing="wider">
+              최근 작업
+            </Text>
+          </Box>
+
+          {/* 추천 히스토리 리스트 */}
           <Box flex={1} w="full" overflowY="auto" px={3} pb={4}>
             <VStack spacing={2} align="stretch">
               {isLoading ? (
                 <Center py={10}>
-                  <Spinner size="md" color="purple.500" />
+                  <Spinner size="md" color="purple.400" />
                 </Center>
               ) : (
-                recommendations.map((rec) => (
-                  <Card
-                    key={rec.recommendation_id}
-                    bg={selectedRecommendation?.recommendation_id === rec.recommendation_id ? 'purple.50' : 'white'}
-                    borderWidth="1px"
-                    borderColor={selectedRecommendation?.recommendation_id === rec.recommendation_id ? 'purple.200' : 'transparent'}
-                    cursor="pointer"
-                    onClick={() => handleHistoryClick(rec)}
-                    _hover={{ 
-                      shadow: 'sm',
-                      borderColor: 'purple.200',
-                      transform: 'translateY(-1px)'
-                    }}
-                    transition="all 0.2s"
-                    borderRadius="lg"
-                  >
-                    <CardBody p={3}>
-                      <VStack align="start" spacing={2}>
-                        <Text fontWeight="semibold" fontSize="sm" noOfLines={1}>
-                          {rec.title}
-                        </Text>
-                        <Text fontSize="xs" color="gray.600" noOfLines={2}>
-                          {rec.description}
-                        </Text>
-                        <HStack spacing={2} flexWrap="wrap">
-                          {rec.departments?.slice(0, 2).map((dept, idx) => (
-                            <Badge 
-                              key={idx} 
-                              size="sm" 
-                              colorScheme="purple" 
-                              borderRadius="full"
-                              fontSize="xs"
-                            >
-                              {dept}
-                            </Badge>
-                          ))}
-                        </HStack>
-                        <Text fontSize="xs" color="gray.500">
-                          <Icon as={FiCalendar} boxSize={3} mr={1} />
-                          {formatDate(rec.created_at || '')}
-                        </Text>
-                      </VStack>
-                    </CardBody>
-                  </Card>
+                recommendations.map((rec, index) => (
+                  <ScaleFade in={true} delay={index * 0.05} key={rec.recommendation_id}>
+                    <Card
+                      bg={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                        ? 'white' 
+                        : 'white'}
+                      borderWidth="1px"
+                      borderColor={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                        ? 'transparent' 
+                        : 'gray.200'}
+                      cursor="pointer"
+                      onClick={() => handleHistoryClick(rec)}
+                      _hover={{ 
+                        borderColor: 'transparent',
+                        transform: 'translateX(4px)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                      }}
+                      transition="all 0.2s"
+                      borderRadius="lg"
+                      overflow="hidden"
+                      position="relative"
+                      boxShadow={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                        ? '0 4px 20px rgba(138, 97, 255, 0.15)' 
+                        : 'sm'}
+                    >
+                      {/* 선택된 아이템 그라데이션 보더 효과 */}
+                      {selectedRecommendation?.recommendation_id === rec.recommendation_id && (
+                        <>
+                          <Box
+                            position="absolute"
+                            top="-1px"
+                            left="-1px"
+                            right="-1px"
+                            bottom="-1px"
+                            bgGradient="linear(135deg, purple.400, pink.400, blue.400)"
+                            borderRadius="lg"
+                            zIndex={0}
+                          />
+                          <Box
+                            position="absolute"
+                            top="1px"
+                            left="1px"
+                            right="1px"
+                            bottom="1px"
+                            bg="white"
+                            borderRadius="lg"
+                            zIndex={1}
+                          />
+                        </>
+                      )}
+                      
+                      <CardBody p={3} position="relative" zIndex={2}>
+                        <VStack align="start" spacing={2}>
+                          <Text 
+                            fontWeight="semibold" 
+                            fontSize="sm" 
+                            color="gray.800" 
+                            noOfLines={1}
+                          >
+                            {rec.title}
+                          </Text>
+                          <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                            {rec.description}
+                          </Text>
+                          <HStack spacing={2} flexWrap="wrap">
+                            {rec.departments?.slice(0, 2).map((dept, idx) => {
+                              const deptKey = dept as Departments;
+                              const deptStyle = DEPARTMENTS_STYLES[deptKey];
+                              return (
+                                <Badge 
+                                  key={idx} 
+                                  size="sm" 
+                                  bg={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                                    ? `${deptStyle?.color || 'purple'}.50`
+                                    : 'gray.100'}
+                                  color={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                                    ? `${deptStyle?.color || 'purple'}.600`
+                                    : 'gray.600'}
+                                  borderRadius="full"
+                                  fontSize="xs"
+                                  px={2}
+                                  py={0.5}
+                                  border="1px solid"
+                                  borderColor={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                                    ? `${deptStyle?.color || 'purple'}.200`
+                                    : 'transparent'}
+                                >
+                                  <HStack spacing={1}>
+                                    <Icon as={DEPARTMENT_ICONS[deptKey] || FiLayers} boxSize={3} />
+                                    <Text>{dept}</Text>
+                                  </HStack>
+                                </Badge>
+                              );
+                            })}
+                          </HStack>
+                          <HStack spacing={2} color="gray.500" fontSize="xs">
+                            <Icon as={FiCalendar} boxSize={3} />
+                            <Text>{formatDate(rec.created_at || '')}</Text>
+                          </HStack>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  </ScaleFade>
                 ))
               )}
             </VStack>
@@ -446,6 +715,87 @@ const RecommendationChat = () => {
               </Box>
             </VStack>
           </Center>
+        ) : isLoadingDetail ? (
+          /* 로딩 화면 - 인터랙티브한 애니메이션 */
+          <Center h="full" p={8}>
+            <VStack spacing={8} maxW="500px" w="full">
+              {/* 메인 로딩 애니메이션 */}
+              <Box position="relative" w="120px" h="120px">
+                <Box
+                  position="absolute"
+                  inset="0"
+                  borderRadius="full"
+                  bgGradient="linear(to-r, purple.400, pink.400)"
+                  animation={`${pulse} 2s ease-in-out infinite`}
+                  opacity="0.3"
+                />
+                <Center
+                  position="absolute"
+                  inset="0"
+                  borderRadius="full"
+                  bg="white"
+                  boxShadow="xl"
+                  animation={`${float} 3s ease-in-out infinite`}
+                >
+                  <Icon 
+                    as={LOADING_TIPS[currentTipIndex].icon} 
+                    boxSize={12} 
+                    color={LOADING_TIPS[currentTipIndex].color}
+                  />
+                </Center>
+              </Box>
+
+              {/* 로딩 텍스트 */}
+              <VStack spacing={4} w="full">
+                <Fade in={true} key={currentTipIndex}>
+                  <Text 
+                    fontSize="lg" 
+                    fontWeight="medium" 
+                    textAlign="center"
+                    color="gray.700"
+                  >
+                    {LOADING_TIPS[currentTipIndex].text}
+                  </Text>
+                </Fade>
+
+                {/* 프로그레스 바 */}
+                <Box w="full" maxW="300px">
+                  <Progress 
+                    value={loadingProgress} 
+                    size="sm" 
+                    colorScheme="purple"
+                    borderRadius="full"
+                    hasStripe
+                    isAnimated
+                  />
+                  <HStack justify="space-between" mt={2}>
+                    <Text fontSize="xs" color="gray.500">분석 중...</Text>
+                    <Text fontSize="xs" color="gray.500">{Math.round(loadingProgress)}%</Text>
+                  </HStack>
+                </Box>
+              </VStack>
+
+              {/* 로딩 중 팁 아이콘들 */}
+              <HStack spacing={4} mt={8}>
+                {LOADING_TIPS.map((tip, index) => (
+                  <Box
+                    key={index}
+                    p={2}
+                    borderRadius="lg"
+                    bg={index === currentTipIndex ? 'purple.50' : 'transparent'}
+                    transition="all 0.3s"
+                  >
+                    <Icon
+                      as={tip.icon}
+                      boxSize={6}
+                      color={index === currentTipIndex ? tip.color : 'gray.400'}
+                      opacity={index === currentTipIndex ? 1 : 0.4}
+                    />
+                  </Box>
+                ))}
+              </HStack>
+            </VStack>
+          </Center>
         ) : (
           /* 검색 결과 - 추천 상세 및 부서별 에이전트 카드 */
           <Box h="full" overflowY="auto">
@@ -485,82 +835,96 @@ const RecommendationChat = () => {
             {/* 부서별 에이전트 카드 */}
             <Box p={8}>
               <VStack spacing={8} align="stretch">
-                {Object.entries(searchResults).map(([deptId, agents]) => {
+                {Object.entries(searchResults).map(([deptId, agents], deptIndex) => {
                   const dept = DEPARTMENTS_STYLES[deptId as Departments] || { id: deptId, name: deptId, color: 'purple', bgGradient: 'linear(to-r, purple.400, purple.600)' };
+                  const DeptIcon = DEPARTMENT_ICONS[deptId as Departments] || FiLayers;
+                  
                   return (
-                    <Box key={dept.id}>
-                      <HStack mb={4}>
-                        <Badge 
-                          colorScheme={dept.color} 
-                          fontSize="sm" 
-                          px={3} 
-                          py={1} 
-                          borderRadius="full"
-                        >
-                          {dept.name}
-                        </Badge>
-                      </HStack>
-                      
-                      <Grid templateColumns="repeat(auto-fill, minmax(320px, 1fr))" gap={4}>
-                        {agents.map((agent) => (
-                          <Card
-                            key={agent.agent_id}
-                            bg="white"
-                            borderWidth="1px"
-                            borderColor="transparent"
-                            _hover={{ 
-                              shadow: cardHoverShadow,
-                              transform: 'translateY(-4px)',
-                              borderColor: 'purple.200'
-                            }}
-                            transition="all 0.3s"
-                            cursor="pointer"
-                            onClick={() => handleAgentSelect(agent)}
-                            borderRadius="xl"
-                            overflow="hidden"
+                    <SlideFade in={true} offsetY="20px" delay={deptIndex * 0.1} key={dept.id}>
+                      <Box>
+                        <HStack mb={4}>
+                          <Badge 
+                            colorScheme={dept.color} 
+                            fontSize="sm" 
+                            px={3} 
+                            py={1} 
+                            borderRadius="full"
+                            display="flex"
+                            alignItems="center"
                           >
-                            <Box h="4px" bgGradient={dept.bgGradient} />
-                            <CardBody p={5}>
-                              <VStack align="start" spacing={4}>
-                                <HStack spacing={3}>
-                                  <Avatar 
-                                    size="md" 
-                                    name={agent.name}
-                                    bg={`${dept.color}.500`}
-                                  />
-                                  <Box flex={1}>
-                                    <Text fontWeight="bold" fontSize="md">{agent.name}</Text>
-                                    <Text fontSize="sm" color="gray.500">{agent.department_name}</Text>
-                                  </Box>
-                                </HStack>
-                                
-                                <Text fontSize="sm" color="gray.600">
-                                  {dept.name} 관련 업무를 전문적으로 도와드립니다
-                                </Text>
-                                
-                                <HStack spacing={2} flexWrap="wrap">
-                                  {agent.tags?.map((tag, idx) => (
-                                    <Badge key={idx} size="sm" variant="subtle" colorScheme={dept.color}>
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                </HStack>
-                                
-                                <Button
-                                  size="sm"
-                                  colorScheme={dept.color}
-                                  variant="ghost"
-                                  w="full"
-                                  rightIcon={<FiMessageSquare />}
-                                >
-                                  상담 시작
-                                </Button>
-                              </VStack>
-                            </CardBody>
-                          </Card>
-                        ))}
-                      </Grid>
-                    </Box>
+                            <Icon as={DeptIcon} mr={2} />
+                            {dept.name}
+                          </Badge>
+                        </HStack>
+                        
+                        <Grid templateColumns="repeat(auto-fill, minmax(320px, 1fr))" gap={4}>
+                          {agents.map((agent, agentIndex) => (
+                            <ScaleFade in={true} delay={(deptIndex * 0.1) + (agentIndex * 0.05)} key={agent.agent_id}>
+                              <Card
+                                bg="white"
+                                borderWidth="1px"
+                                borderColor="transparent"
+                                _hover={{ 
+                                  shadow: cardHoverShadow,
+                                  transform: 'translateY(-4px)',
+                                  borderColor: `${dept.color}.200`
+                                }}
+                                transition="all 0.3s"
+                                cursor="pointer"
+                                onClick={() => handleAgentSelect(agent)}
+                                borderRadius="xl"
+                                overflow="hidden"
+                              >
+                                <Box h="4px" bgGradient={dept.bgGradient} />
+                                <CardBody p={5}>
+                                  <VStack align="start" spacing={4}>
+                                    <HStack spacing={3}>
+                                      <Avatar 
+                                        size="md" 
+                                        name={agent.name}
+                                        bg={`${dept.color}.500`}
+                                        icon={<Icon as={DeptIcon} boxSize={6} />}
+                                      />
+                                      <Box flex={1}>
+                                        <Text fontWeight="bold" fontSize="md">{agent.name}</Text>
+                                        <Text fontSize="sm" color="gray.500">{agent.department_name}</Text>
+                                      </Box>
+                                    </HStack>
+                                    
+                                    <Text fontSize="sm" color="gray.600">
+                                      {agent.description || `${dept.name} 에이전트입니다. 업무에 대한 질문을 해보세요!`}
+                                    </Text>
+                                    
+                                    <HStack spacing={2} flexWrap="wrap">
+                                      {agent.tags?.map((tag, idx) => (
+                                        <Badge key={idx} size="sm" variant="subtle" colorScheme={dept.color}>
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </HStack>
+                                    
+                                    <Button
+                                      size="sm"
+                                      colorScheme={dept.color}
+                                      variant="ghost"
+                                      w="full"
+                                      rightIcon={<FiMessageSquare />}
+                                      _hover={{
+                                        bg: `${dept.color}.50`,
+                                        transform: 'translateX(4px)'
+                                      }}
+                                      transition="all 0.2s"
+                                    >
+                                      상담 시작
+                                    </Button>
+                                  </VStack>
+                                </CardBody>
+                              </Card>
+                            </ScaleFade>
+                          ))}
+                        </Grid>
+                      </Box>
+                    </SlideFade>
                   );
                 })}
               </VStack>

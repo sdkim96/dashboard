@@ -25,6 +25,11 @@ export type Agent = {
      */
     name: string;
     /**
+     * Description
+     * Description of the agent, if available.
+     */
+    description: string;
+    /**
      * Tags
      * List of tags associated with the agent.
      */
@@ -35,10 +40,15 @@ export type Agent = {
      */
     icon_link?: string | null;
     /**
-     * Department Id
-     * ID of the department to which the agent belongs, if applicable.
+     * Created At
+     * Timestamp when the agent was created.
      */
-    department_id?: string | null;
+    created_at: string;
+    /**
+     * Updated At
+     * Timestamp when the agent was last updated.
+     */
+    updated_at: string;
 };
 
 /**
@@ -47,7 +57,7 @@ export type Agent = {
 export type AgentDetail = {
     /**
      * Agent Id
-     * Unique identifier of the agent.
+     * Unique identifier of the model.
      */
     agent_id: string;
     /**
@@ -56,13 +66,13 @@ export type AgentDetail = {
      */
     agent_version: number;
     /**
-     * Author Name
-     * Name of the author of the agent.
+     * Department Name
+     * Department to which the agent belongs.
      */
-    author_name: string | null;
+    department_name: string;
     /**
      * Name
-     * Name of the agent.
+     * Username of the user.
      */
     name: string;
     /**
@@ -71,20 +81,15 @@ export type AgentDetail = {
      */
     description: string;
     /**
-     * Icon Link
-     * Link to the agent's icon or avatar, if available.
-     */
-    icon_link?: string | null;
-    /**
      * Tags
      * List of tags associated with the agent.
      */
     tags?: Array<string>;
     /**
-     * Prompt
-     * Prompt or instructions for the agent, if available.
+     * Icon Link
+     * Link to the user's icon or avatar, if available.
      */
-    prompt?: string | null;
+    icon_link?: string | null;
     /**
      * Created At
      * Timestamp when the agent was created.
@@ -95,6 +100,21 @@ export type AgentDetail = {
      * Timestamp when the agent was last updated.
      */
     updated_at: string;
+    /**
+     * Author Name
+     * Name of the author of the agent.
+     */
+    author_name?: string | null;
+    /**
+     * Prompt
+     * Prompt or instructions for the agent, if available.
+     */
+    prompt?: string | null;
+    /**
+     * Output Schema
+     * Output schema for the agent's responses.
+     */
+    output_schema?: Array<Attribute> | null;
 };
 
 /**
@@ -168,6 +188,11 @@ export type AgentPublish = {
      */
     prompt: string;
     /**
+     * Department Name
+     * Name of the department to which the agent belongs.
+     */
+    department_name: 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales';
+    /**
      * Output Schema
      * Output schema for the agent's responses. if not provided, it will be raw string
      */
@@ -182,7 +207,7 @@ export type AgentRecommendation = {
      * Department Name
      * Name of the department to which the agent belongs.
      */
-    department_name: 'Engineering' | 'Design' | 'Marketing' | 'Sales' | 'Support';
+    department_name: 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales';
     /**
      * Agents
      * List of agents associated with the recommendation.

@@ -279,7 +279,8 @@ def publish_agent(
             is_deleted=False,
             is_active=True,
             created_at=now,
-            updated_at=now
+            updated_at=now,
+            department_name=publish.department_name
         )
         session.add(new_agent)
     

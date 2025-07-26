@@ -42,6 +42,11 @@ class Agent(BaseModel):
         description="Username of the user.",
         examples=["example_user"]
     )
+    description: str = Field(
+        ...,
+        description="Description of the agent, if available.",
+        examples=["This is an example agent."]
+    )
     tags: List[str] = Field(
         default_factory=list,
         description="List of tags associated with the agent.",
@@ -52,65 +57,180 @@ class Agent(BaseModel):
         description="Link to the user's icon or avatar, if available.",
         examples=["https://example.com/icon.png"]
     )
-    department_id: str | None = Field(
-        None,
-        description="ID of the department to which the agent belongs, if applicable.",
-        examples=["department-123"]
+    created_at: dt.datetime = Field(
+        ...,
+        description="Timestamp when the agent was created.",
+        examples=[dt.datetime.now()]
+    )
+    updated_at: dt.datetime = Field(
+        ...,
+        description="Timestamp when the agent was last updated.",
+        examples=[dt.datetime.now()]
     )
 
     @classmethod
     def mock(cls, type: t.DepartmentsLiteral) -> "Agent":
         match type:
-            case "Engineering":
+            case "Common":
                 return cls(
                     agent_id="agent-123",
                     agent_version=1,
-                    department_name="Engineering",
-                    name="Engineering Agent",
-                    tags=["engineering", "ai"],
-                    icon_link="https://example.com/engineering_icon.png",
-                    department_id="engineering-123"
+                    department_name="Common",
+                    description="This is a marketing agent.",
+                    name="Common Agent",
+                    tags=["common", "ai"],
+                    icon_link="https://example.com/common_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
                 )
-            case "Design":
+            case "HR":
                 return cls(
                     agent_id="agent-456",
                     agent_version=1,
-                    department_name="Design",
-                    name="Design Agent",
-                    tags=["design", "ai"],
-                    icon_link="https://example.com/design_icon.png",
-                    department_id="design-456"
-                )
-            case "Marketing":
-                return cls(
-                    agent_id="agent-456",
-                    agent_version=1,
-                    department_name="Marketing",
-                    name="Marketing Agent",
-                    tags=["marketing", "ai"],
-                    icon_link="https://example.com/marketing_icon.png",
-                    department_id="marketing-456"
+                    department_name="HR",
+                    description="This is a marketing agent.",
+                    name="HR Agent",
+                    tags=["hr", "ai"],
+                    icon_link="https://example.com/hr_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
                 )
             case "Sales":
                 return cls(
-                    agent_id="agent-789",
+                    agent_id="agent-456",
                     agent_version=1,
                     department_name="Sales",
+                    description="This is a marketing agent.",
                     name="Sales Agent",
                     tags=["sales", "ai"],
                     icon_link="https://example.com/sales_icon.png",
-                    department_id="sales-789"
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
                 )
-            case "Support":
+            case "Marketing":
+                return cls(
+                    agent_id="agent-789",
+                    agent_version=1,
+                    department_name="Marketing",
+                    description="This is a marketing agent.",
+                    name="Marketing Agent",
+                    tags=["marketing", "ai"],
+                    icon_link="https://example.com/marketing_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
+                )
+            case "CustomerSupport":
                 return cls(
                     agent_id="agent-101",
                     agent_version=1,
-                    department_name="Support",
-                    name="Support Agent",
+                    department_name="CustomerSupport",
+                    description="This is a marketing agent.",
+                    name="Customer Support Agent",
                     tags=["support", "ai"],
                     icon_link="https://example.com/support_icon.png",
-                    department_id="support-101"
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
                 )
+            case "Finance":
+                return cls(
+                    agent_id="agent-102",
+                    agent_version=1,
+                    department_name="Finance",
+                    description="This is a marketing agent.",
+                    name="Finance Agent",
+                    tags=["finance", "ai"],
+                    icon_link="https://example.com/finance_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
+                )
+            case "Planning":
+                return cls(
+                    agent_id="agent-103",
+                    agent_version=1,
+                    department_name="Planning",
+                    description="This is a marketing agent.",
+                    name="Planning Agent",
+                    tags=["planning", "ai"],
+                    icon_link="https://example.com/planning_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
+                )
+            case "BusinessSupport":
+                return cls(
+                    agent_id="agent-104",
+                    agent_version=1,
+                    department_name="BusinessSupport",
+                    description="This is a marketing agent.",
+                    name="Business Support Agent",
+                    tags=["business", "ai"],
+                    icon_link="https://example.com/business_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
+                )
+            case "ProductDevelopment":
+                return cls(
+                    agent_id="agent-105",
+                    agent_version=1,
+                    department_name="ProductDevelopment",
+                    description="This is a marketing agent.",
+                    name="Product Development Agent",
+                    tags=["product", "ai"],
+                    icon_link="https://example.com/product_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
+                )
+            case "InternationalSales":
+                return cls(
+                    agent_id="agent-106",
+                    agent_version=1,
+                    department_name="InternationalSales",
+                    description="This is a marketing agent.",
+                    name="International Sales Agent",
+                    tags=["international", "sales", "ai"],
+                    icon_link="https://example.com/international_sales_icon.png",
+                    created_at=dt.datetime.now(),
+                    updated_at=dt.datetime.now()
+                )
+
+
+class AgentDetail(Agent):
+    author_name: str | None = Field(
+        None,
+        description="Name of the author of the agent.",
+        examples=["Author Name"]
+    )
+    prompt: str | None = Field(
+        None,
+        description="Prompt or instructions for the agent, if available.",
+        examples=["This is an example prompt for the agent."]
+    )
+    output_schema: List[Attribute] | None = Field(
+        default=None,
+        description="Output schema for the agent's responses.",
+        examples=[[
+            Attribute(attribute="field1", type="str"),
+            Attribute(attribute="field2", type="int")
+        ]]
+    )
+    
+
+    @classmethod
+    def failed(cls) -> "AgentDetail":
+        return cls(
+            agent_id="",
+            agent_version=0,
+            department_name="",
+            name="",
+            tags=[],
+            icon_link=None,
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now(),
+            author_name="",
+            description="",
+            prompt="",
+            output_schema=None
+        )
+    
 
 class AgentRequest(BaseModel):
     agent_id: str = Field(
@@ -145,31 +265,31 @@ class AgentRecommendation(BaseModel):
     agents: List[Agent] = Field(
         default_factory=list,
         description="List of agents associated with the recommendation.",
-        examples=[[Agent.mock(type="Engineering")]]
+        examples=[[Agent.mock(type="HR")]]
     )
 
     @classmethod
     def mocks(cls) -> List["AgentRecommendation"]:
         return [
             cls(
-                department_name="Engineering",
-                agents=[Agent.mock(type="Engineering")]
+                department_name="Common",
+                agents=[Agent.mock(type="Common")]
             ),
             cls(
-                department_name="Design",
-                agents=[Agent.mock(type="Design")]
-            ),
-            cls(
-                department_name="Marketing",
-                agents=[Agent.mock(type="Marketing")]
+                department_name="HR",
+                agents=[Agent.mock(type="HR")]
             ),
             cls(
                 department_name="Sales",
                 agents=[Agent.mock(type="Sales")]
             ),
             cls(
-                department_name="Support",
-                agents=[Agent.mock(type="Support")]
+                department_name="Marketing",
+                agents=[Agent.mock(type="Marketing")]
+            ),
+            cls(
+                department_name="CustomerSupport",
+                agents=[Agent.mock(type="CustomerSupport")]
             )
             
         ]
@@ -239,6 +359,11 @@ class AgentPublish(BaseModel):
         description="Prompt or instructions for the agent.",
         examples=["This is an example prompt for the agent."]
     )
+    department_name: t.DepartmentsLiteral = Field(
+        ...,
+        description="Name of the department to which the agent belongs.",
+        examples=["Engineering", "Marketing"]
+    )
     output_schema: List[Attribute] | None = Field(
         None,
         description="Output schema for the agent's responses. if not provided, it will be raw string",
@@ -247,76 +372,26 @@ class AgentPublish(BaseModel):
             Attribute(attribute="field2", type="int")
         ]]
     )
+
+    @classmethod
+    def mock(cls) -> "AgentPublish":
+        return AgentPublish(
+            agent_id="agent-123",
+            name="Example Agent",
+            icon_link="https://example.com/icon.png",
+            tags=["cool", "good"],
+            description="This is an example agent.",
+            prompt="This is an example prompt for the agent.",
+            department_name="CustomerSupport",
+            output_schema=[
+                Attribute(attribute="field1", type="str"),
+                Attribute(attribute="field2", type="int")
+            ]
+        )
     
 
 
 
-class AgentDetail(BaseModel):
-    agent_id: str = Field(
-        ...,
-        description="Unique identifier of the agent.",
-        examples=["agent-123"]
-    )
-    agent_version: int = Field(
-        ...,
-        description="Version of the agent.",
-        examples=[1]
-    )
-    author_name: str | None = Field(
-        ...,
-        description="Name of the author of the agent.",
-        examples=["Author Name"]
-    )
-    name: str = Field(
-        ...,
-        description="Name of the agent.",
-        examples=["Example Agent"]
-    )
-    description: str = Field(
-        ...,
-        description="Description of the agent, if available.",
-        examples=["This is an example agent."]
-    )
-    icon_link: str | None = Field(
-        None,
-        description="Link to the agent's icon or avatar, if available.",
-        examples=["https://example.com/icon.png"]
-    )
-    tags: List[str] = Field(
-        default_factory=list,
-        description="List of tags associated with the agent.",
-        examples=[["cool", "good"]]
-    )
-    prompt: str | None = Field(
-        None,
-        description="Prompt or instructions for the agent, if available.",
-        examples=["This is an example prompt for the agent."]
-    )
-    created_at: dt.datetime = Field(
-        ...,
-        description="Timestamp when the agent was created.",
-        examples=[dt.datetime.now()]
-    )
-    updated_at: dt.datetime = Field(
-        ...,
-        description="Timestamp when the agent was last updated.",
-        examples=[dt.datetime.now()]
-    )
-
-    @classmethod
-    def failed(cls) -> "AgentDetail":
-        return cls(
-            agent_id="",
-            agent_version=0,
-            author_name=None,
-            name="",
-            description="",
-            icon_link=None,
-            tags=[],
-            prompt=None,
-            created_at=dt.datetime.now(),
-            updated_at=dt.datetime.now()
-        )
 
 
 class AgentSpec(BaseModel):

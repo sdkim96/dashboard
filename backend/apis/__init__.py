@@ -22,7 +22,7 @@ def init_apis(app: FastAPI) -> None:
     from backend.apis.tools import (
         TOOLS,
     )
-    from backend.apis.recommend import (
+    from backend.apis.recommendations import (
         RECOMMENDATIONS,
     )
 

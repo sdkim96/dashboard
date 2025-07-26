@@ -88,6 +88,17 @@ class Recommendation(BaseModel):
     )
 
     @classmethod
+    def failed(cls) -> "Recommendation":
+        return cls(
+            recommendation_id="",
+            work_when=dt.datetime.now(),
+            work_where="",
+            work_whom="",
+            work_details="",
+            agents=[]
+        )
+
+    @classmethod
     def mock(cls) -> "Recommendation":
         return cls(
             recommendation_id=str(uuid.uuid4()),

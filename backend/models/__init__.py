@@ -4,7 +4,8 @@ from backend.models.agent import (
     AgentDetail,
     AgentPublish,
     AgentSpec,
-    AgentMarketPlace
+    AgentMarketPlace,
+    AgentRecommendation
 )
 from backend.models.completion import (
     CompletionMessage

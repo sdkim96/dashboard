@@ -78,18 +78,7 @@ class PostPublishAgentRequest(BaseRequest):
     agent: AgentPublish = Field(
         ...,
         description="Details of the agent to be published.",
-        examples=[AgentPublish(
-            agent_id=None,  # None for new agents, or provide existing agent ID for updates
-            name="Example Agent", 
-            icon_link=None,
-            description="This is an example agent.",
-            tags=["cool", "good"],
-            prompt="This is an example prompt for the agent.",
-            output_schema=[Attribute(
-                attribute="field1",
-                type="str"
-            )]
-        )]
+        examples=[AgentPublish.mock()]
     )
 
 
@@ -100,18 +89,7 @@ class PutModifyAgentRequest(BaseRequest):
     agent: AgentPublish = Field(
         ...,
         description="Details of the agent to be published.",
-        examples=[AgentPublish(
-            agent_id="agent-123",  # Existing agent ID for updates
-            name="Example Agent", 
-            icon_link=None,
-            description="This is an example agent.",
-            tags=["cool", "good"],
-            prompt="This is an example prompt for the agent.",
-            output_schema=[Attribute(
-                attribute="field1",
-                type="str"
-            )]
-        )]
+        examples=[AgentPublish.mock()]
     )
 
 
@@ -268,7 +246,7 @@ class GetMeResponse(BaseResponse):
     agents: List[Agent] = Field(
         default_factory=list,
         description="List of agent IDs that the user is subscribed to.",
-        examples=[[Agent.mock(type="Engineering")]]
+        examples=[[Agent.mock(type="BusinessSupport")]]
     )
     llms: List[LLMModel] = Field(
         default_factory=list,
@@ -375,18 +353,7 @@ class GetAgentResponse(BaseResponse):
     agent: AgentDetail = Field(
         ...,
         description="Details of the requested agent.",
-        examples=[AgentDetail(
-            agent_id="agent-123", 
-            agent_version=1,
-            name="Example Agent", 
-            icon_link=None,
-            author_name="Author Name",
-            description="This is an example agent.",
-            tags=["cool", "good"],
-            prompt="This is an example prompt for the agent.",
-            created_at=dt.datetime.now(),
-            updated_at=dt.datetime.now(),
-        )]
+        examples=[AgentDetail.mock(type="BusinessSupport")],
     )
 
 

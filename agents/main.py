@@ -1,11 +1,17 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Tuple, Generic, TypeVar, cast
 
 from pydantic import BaseModel, Field, ConfigDict, create_model
-from anthropic import Anthropic
-from openai import OpenAI
+from anthropic import Anthropic, AsyncAnthropic
+from openai import AsyncOpenAI, OpenAI
+from openai.types.chat import ChatCompletion
 
-from agents.provider import Chat
+from agents.internal.search_engine import BaseSearchEngine
+
+ProviderT = TypeVar("ProviderT", bound=OpenAI | Anthropic)
+AsyncProviderT = TypeVar("AsyncProviderT", bound=AsyncOpenAI | AsyncAnthropic)
+
+ParsedT = TypeVar("ParsedT", bound=BaseModel)
 
 class Attribute(BaseModel):
     """
@@ -22,38 +28,120 @@ class Attribute(BaseModel):
         examples=['str', 'int', 'float', 'bool']
     )
 
+class SimpleChat:
+    """
+    A simple chat with no context
+    """
 
-class SimpleAgent:
+    def __init__(self, agent: "AsyncSimpleAgent") -> None:
+        self.agent = agent
+
+    async def aquery(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        history: Optional[List[dict]] = [],
+    ) -> Tuple[str, Exception | None]:
+        """
+        Creates a SimpleChat instance with the provided prompts and history.
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+        ]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": user_prompt})
+
+        response, err = await self.agent.ainvoke(
+            messages=messages,
+            deployment_id="gpt-4o"
+        )
+        if err:
+            return "", err
+        return response, None
+
+
+class AsyncSimpleAgent(Generic[AsyncProviderT]):
     def __init__(
         self, 
-        agent_id: str,
-        agent_version: int,
-        issuer: str,
-        deployment_id: str,
+        provider: AsyncProviderT,
     ):
-        self.agent_id = agent_id
-        self.version = agent_version
         
-        self.issuer = issuer
-        self.deployment_id = deployment_id
+        self.provider = provider
+        
 
-    @property
-    def model(self) -> OpenAI | Anthropic:
+    async def ainvoke(
+        self,
+        messages: List[dict],
+        deployment_id: str,
+    ) -> Tuple[str, Exception | None]:
         """
-        Returns the model used by the agent.
+        Asynchronously invokes the agent with the provided messages and output schema.
+
+        Args:
+            messages (List[dict]): The messages to send to the agent.
+            deployment_id (str): The ID of the agent's deployment.
+        Returns:
+            str: The response from the agent.
         """
-        return self._choose_model(self.issuer, self.deployment_id)
 
-    @property
-    def key_of_env(self) -> str:
-        match self.issuer:
-            case "openai":
-                return "OPENAI_API_KEY"
-            case "anthropic":
-                return "ANTHROPIC_API_KEY"
-            case _:
-                raise ValueError(f"Unsupported issuer: {self.issuer}")
+        if isinstance(self.provider, AsyncOpenAI):
+            try:
+                result = cast(
+                    ChatCompletion,
+                    await self.provider.chat.completions.create(
+                        model=deployment_id,
+                        messages=messages,  # type: ignore
+                    )
+                )
+            except Exception as e:
+                return "", e
+            try:
+                cnt = result.choices[0].message.content
+                if cnt is None:
+                    return "", ValueError("No content in the response.")
+                return cnt, None
+            except Exception as e:
+                return "", e
 
+        elif isinstance(self.provider, AsyncAnthropic):
+            raise NotImplementedError("AsyncAnthropic is not implemented yet.")
+
+        return "", ValueError("Unsupported provider type.")
+
+
+    async def aparse(
+        self,
+        messages: List[dict],
+        response_fmt: type[ParsedT],
+        deployment_id: str
+    ) -> Tuple[ParsedT | None, Exception | None]:
+        """
+        Asynchronously parses the response from the agent based on the provided messages.
+
+        Args:
+            messages (List[dict]): The messages to send to the agent.
+            output_schema (List[dict[str, str]] | None): The schema for the expected
+                output. If None, the output will not be parsed.
+        Returns:
+            List[dict[str, str]]: The parsed response from the agent.
+        """
+        if isinstance(self.provider, AsyncOpenAI):
+            response = await self.provider.chat.completions.parse(
+                model=deployment_id,
+                messages=messages, #type: ignore
+                response_format=response_fmt
+            )
+        else:
+            raise NotImplementedError("Parsing is not implemented for this provider.")
+        
+        parsed = response.choices[0].message.parsed
+        if not parsed:
+            return None, ValueError("No parsed content in the response.")
+
+        return parsed, None
+
+    
     async def astream(
         self,        
         messages: List[dict],

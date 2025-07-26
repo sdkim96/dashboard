@@ -13,7 +13,7 @@ import backend.utils.logger as lg
 from backend.utils.history import get_history, set_history
 from backend.utils.agent_spec import get_agent_spec
 
-from agents.main import SimpleAgent
+from agents.main import SimpleChat
 
 async def chunk(event: str, data: t.CompletionChunkUnion) -> str:
     """

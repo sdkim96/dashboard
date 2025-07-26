@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 from typing import Annotated, List
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from sqlalchemy.orm import Session
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 import backend.constants as c
 import backend.deps as dp
 import backend.models as mdl
-import backend.services.conversations as svc
+import backend.services.recommendations as svc
 
 RECOMMENDATIONS = APIRouter(
     prefix=c.APIPrefix.RECOMMENDATIONS.value,
@@ -61,7 +61,6 @@ It returns a `Recommendation` object containing details about the recommendation
     response_model=mdl.GetRecommendationByIDResponse
 )
 def get_recommendation_by_id(
-    db: Annotated[Session, Depends(dp.get_db)],
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     recommendation_id: str,
@@ -93,22 +92,37 @@ It returns the created `Recommendation` object.
     response_model=mdl.PostRecommendationResponse
 )
 async def create_recommendation(
-    db: Annotated[Session, Depends(dp.get_db)],
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
     body: mdl.PostRescommendationRequest
 ) -> mdl.PostRecommendationResponse:
     """
     Create a new recommendation for the user.
 
     Args:
-        db (Session): Database session dependency.
+        session (Session): Database session dependency.
         user_profile (mdl.User): The profile of the current user.
 
     Returns:
         mdl.Recommendation: The created recommendation.
     """
-    return mdl.PostRecommendationResponse.mock()
+    recommendation, err = await svc.create_recommendation(
+        session=session,
+        user_profile=user_profile,
+        body=body,
+        request_id=request_id
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create recommendation: {err}"
+        )
+
+    return mdl.PostRecommendationResponse(
+        request_id=request_id,
+        recommendation=recommendation
+    )
 
 
 @RECOMMENDATIONS.post(

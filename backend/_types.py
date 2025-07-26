@@ -16,9 +16,14 @@ MessageContentType = Literal['text', 'image', 'file']
 CompletionActionLiteral = Literal['next', 'retry', 'variant']
 
 DepartmentsLiteral = Literal[
-    'Engineering', 
-    'Design', 
-    'Marketing', 
-    'Sales', 
-    'Support'
+    'Common',
+    'HR',
+    'Sales',
+    'Marketing',
+    'CustomerSupport',
+    'Finance',
+    'Planning',
+    'BusinessSupport',
+    'ProductDevelopment',
+    'InternationalSales'
 ]
