@@ -10,6 +10,7 @@ import backend.models as mdl
 import backend.db.user_tables as user_tbl
 import backend.db.conversations_tables as tbl
 import backend.utils.logger as lg
+import backend._types as t
 
 def get_conversations(
     session: Session,
@@ -56,7 +57,8 @@ def get_conversation_by_id(
     session: Session,
     user_profile: mdl.User,
     request_id: str,
-    conversation_id: str
+    conversation_id: str,
+    conversation_type: t.ConversationTypeLiteral = 'chat'
 ) -> Tuple[mdl.ConversationMaster, Exception | None]:
     Conversation = tbl.Conversation
 
@@ -70,7 +72,8 @@ def get_conversation_by_id(
         )
         .where(
             Conversation.user_id == user_profile.user_id,
-            Conversation.conversation_id == conversation_id
+            Conversation.conversation_id == conversation_id,
+            Conversation.conversation_type == conversation_type
         )
     )
 

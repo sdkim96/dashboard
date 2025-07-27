@@ -145,7 +145,7 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
     async def astream(
         self,        
         messages: List[dict],
-        output_schema: List[dict[str, str]] | None = None
+        deployment_id: str,
     ):
         
         """
@@ -153,24 +153,31 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
 
         Args:
             messages (List[dict]): The messages to send to the agent.
-            output_schema (List[dict[str, str]] | None): The schema for the expected
-                output. If None, the output will not be parsed.
+            deployment_id (str): The ID of the agent's deployment.
         Yields:
-            str: The response from the agent.
+            dict[str, str]: The response from the agent.
+        
+        Yield example:
+            {'type': 'delta', 'content': event.delta}
+            {'type': 'done', 'content': event.content}
+            {'type': 'error', 'content': str(e)}
         """
-        client = self.model
-        chat = Chat(client)
+        if isinstance(self.provider, AsyncOpenAI):
+            try:
+                async with self.provider.chat.completions.stream(
+                    model=deployment_id,
+                    messages=messages,  # type: ignore
+                ) as stream:
+                    async for event in stream:
+                        if event.type == 'content.delta':
+                            yield {'type': 'delta', 'content': event.delta}
+                        elif event.type == 'content.done':
+                            yield {'type': 'done', 'content': event.content}
+            except Exception as e:
+                yield {'type': 'error', 'content': str(e)}
 
-        response_fmt: type[BaseModel] | None = None
-        if output_schema:
-            attributes = [Attribute.model_validate(s) for s in output_schema]
-            response_fmt = self._to_pydantic_model(attributes)
-
-        yield chat.astream(
-            deployment_id=self.deployment_id,
-            messages=messages,
-            output_schema=response_fmt
-        )
+        else:
+            raise NotImplementedError("Streaming is not implemented for this provider.")
 
     def _to_pydantic_model(self, output_schema: List[Attribute]) -> type[BaseModel]:
 

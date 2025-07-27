@@ -430,7 +430,7 @@ export type GetAvailableAgentsResponse = {
 
 /**
  * GetConversationResponse
- * GET /api/v1/conversation Response model
+ * GET /api/v1/conversation, /api/v1/recommendation/{recommendation_id}/conversations Response model
  */
 export type GetConversationResponse = {
     /**
@@ -546,37 +546,6 @@ export type GetRecommendationByIdResponse = {
      * Details of the requested recommendation.
      */
     recommendation: Recommendation;
-};
-
-/**
- * GetRecommendationConversationResponse
- * GET /api/v1/recommendations/{recommendation_id}/conversation Response model
- */
-export type GetRecommendationConversationResponse = {
-    /**
-     * Status
-     * Status of the response, e.g., 'success' or 'error'.
-     */
-    status?: 'success' | 'error';
-    /**
-     * Message
-     * Message providing additional information about the response.
-     */
-    message?: string;
-    /**
-     * Request Id
-     * Unique identifier for the request, used for tracking and debugging.
-     */
-    request_id: string;
-    /**
-     * List of conversations associated with the user.
-     */
-    conversation: ConversationMaster;
-    /**
-     * Messages
-     * List of messages in the conversation.
-     */
-    messages?: Array<MessageResponse>;
 };
 
 /**
@@ -911,6 +880,11 @@ export type PostRecommendationCompletionRequest = {
      * Agent to be used for generating the completion.
      */
     agent: AgentRequest;
+    /**
+     * Messages
+     * List of messages in the conversation for which the completion is requested.
+     */
+    messages: Array<MessageRequest>;
 };
 
 /**
@@ -1427,7 +1401,12 @@ export type GetConversationApiV1ConversationsConversationIdGetData = {
          */
         conversation_id: string;
     };
-    query?: never;
+    query: {
+        /**
+         * Recommendation Id
+         */
+        recommendation_id: string | null;
+    };
     url: '/api/v1/conversations/{conversation_id}';
 };
 
@@ -1706,63 +1685,72 @@ export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponse
 
 export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponse = GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponses[keyof GetRecommendationByIdApiV1RecommendationsRecommendationIdGetResponses];
 
-export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostData = {
+export type ChatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPostData = {
     body: PostRecommendationCompletionRequest;
     path: {
         /**
-         * Agent Id
+         * Recommendation Id
          */
-        agent_id: string;
+        recommendation_id: string;
     };
     query?: never;
-    url: '/api/v1/recommendations/{agent_id}/completion';
+    url: '/api/v1/recommendations/{recommendation_id}/completion';
 };
 
-export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostErrors = {
+export type ChatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostError = ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostErrors[keyof ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostErrors];
+export type ChatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPostError = ChatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPostErrors[keyof ChatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPostErrors];
 
-export type ChatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPostResponses = {
+export type ChatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPostResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetData = {
+export type GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetData = {
     body?: never;
     path: {
+        /**
+         * Recommendation Id
+         */
+        recommendation_id: string;
+    };
+    query: {
         /**
          * Agent Id
          */
         agent_id: string;
+        /**
+         * Agent Version
+         */
+        agent_version?: number;
     };
-    query?: never;
-    url: '/api/v1/recommendations/{agent_id}/conversation';
+    url: '/api/v1/recommendations/{recommendation_id}/conversations';
 };
 
-export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetErrors = {
+export type GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetError = GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetErrors[keyof GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetErrors];
+export type GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetError = GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetErrors[keyof GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetErrors];
 
-export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponses = {
+export type GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetResponses = {
     /**
      * Successful Response
      */
-    200: GetRecommendationConversationResponse;
+    200: GetConversationResponse;
 };
 
-export type GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponse = GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponses[keyof GetRecommendationConversationApiV1RecommendationsAgentIdConversationGetResponses];
+export type GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetResponse = GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetResponses[keyof GetConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGetResponses];
 
 export type ClientOptions = {
     baseUrl: 'http://localhost:8000' | (string & {});

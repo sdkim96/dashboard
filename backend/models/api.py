@@ -70,6 +70,17 @@ class GetAvailableAgentsRequest(BaseRequest):
     def offset(self) -> int:
         """Offset to be used in DB queries"""
         return (self.page - 1) * self.size
+    
+
+class GetConversationRequest(BaseRequest):
+    """
+    GET /api/v1/conversations/{conversation_id} Request model
+    """
+    recommendation_id: str | None = Field(
+        ...,
+        description="ID of the conversation to retrieve.",
+        examples=[str(uuid.uuid4())]
+    )
 
 class PostPublishAgentRequest(BaseRequest):
     """
@@ -208,7 +219,29 @@ class PostRecommendationCompletionRequest(BaseRequest):
         description="Agent to be used for generating the completion.",
         examples=[AgentRequest.mock()]
     )   
+    messages: List[MessageRequest] = Field(
+        ...,
+        description="List of messages in the conversation for which the completion is requested.",
+        examples=[[MessageRequest(
+            content=Content(type='text', parts=["Hello, how can I help you?"]),
+        )]]
+    )
 
+class GetConversationByRecommendationRequest(BaseRequest):
+    """
+    GET /api/v1/recommendations/{recommendation_id}/conversations Request model
+    """
+    agent_id: str = Field(
+        ...,
+        description="ID of the agent for which the conversation is requested.",
+        examples=[str(uuid.uuid4())]
+    )
+    agent_version: int = Field(
+        default=1,
+        ge=0,
+        description="Version of the agent for which the conversation is requested.",
+        examples=[1]
+    )
 
 ########################
 ## 2. Response Models ##
@@ -283,7 +316,7 @@ class GetConversationsResponse(BaseResponse):
 
 class GetConversationResponse(BaseResponse):
     """
-    GET /api/v1/conversation Response model
+    GET /api/v1/conversation, /api/v1/recommendation/{recommendation_id}/conversations Response model
     """
     conversation: ConversationMaster = Field(
         ...,
@@ -443,7 +476,7 @@ class GetRecommendationsResponse(BaseResponse):
     )
     size: int = Field(
         description="Number of items per page.",
-        ge=1,
+        ge=0,
         examples=[20]
     )
     has_next: bool = Field(

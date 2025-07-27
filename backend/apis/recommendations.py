@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 import backend.constants as c
 import backend.deps as dp
 import backend.models as mdl
+
+import backend.services.conversations as csvc
 import backend.services.recommendations as svc
 
 RECOMMENDATIONS = APIRouter(
@@ -33,6 +35,7 @@ It returns a list of `RecommendationMaster` objects, each containing details abo
 def get_recommendations(
     db: Annotated[Session, Depends(dp.get_db)],
     session: Annotated[Session, Depends(dp.get_db)],
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
 ) -> mdl.GetRecommendationsResponse:
     """
@@ -45,7 +48,24 @@ def get_recommendations(
     Returns:
         list[mdl.Recommendation]: A list of recommended tools.
     """
-    return mdl.GetRecommendationsResponse.mock()
+    recommendations, err = svc.get_recommendation_masters(
+        session=session,
+        user_profile=user_profile
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve recommendations: {err}"
+        )
+
+    return mdl.GetRecommendationsResponse(
+        request_id=request_id,
+        recommendations=recommendations,
+        total=len(recommendations),
+        page=1,
+        size=len(recommendations),
+        has_next=False,
+    )
 
 
 @RECOMMENDATIONS.get(
@@ -63,6 +83,7 @@ It returns a `Recommendation` object containing details about the recommendation
 def get_recommendation_by_id(
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
     recommendation_id: str,
 ) -> mdl.GetRecommendationByIDResponse:
     """
@@ -75,8 +96,21 @@ def get_recommendation_by_id(
     Returns:
         list[mdl.Recommendation]: A list of recommended tools.
     """
-    mock = mdl.GetRecommendationByIDResponse.mock()
-    return mock
+    recommendation, err = svc.get_recommendation_by_id(
+        session=session,
+        user_profile=user_profile,
+        recommendation_id=recommendation_id
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve recommendation: {err}"
+        )
+
+    return mdl.GetRecommendationByIDResponse(
+        request_id=request_id,
+        recommendation=recommendation
+    )
 
 
 @RECOMMENDATIONS.post(
@@ -126,7 +160,7 @@ async def create_recommendation(
 
 
 @RECOMMENDATIONS.post(
-    path="/{agent_id}/completion", 
+    path="/{recommendation_id}/completion", 
     summary="Chat With Recommended Agent",
     description=""" 
 ## Interact with an agent to create a recommendation.
@@ -142,42 +176,102 @@ async def chat_completion_with_agent(
     db: Annotated[Session, Depends(dp.get_db)],
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
-    agent_id: str,
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
+    recommendation_id: str,
     body: mdl.PostRecommendationCompletionRequest
-):
+) -> StreamingResponse:
     """
     Create a new recommendation by interacting with an agent.
     """
-    # Implementation for updating a recommendation goes here
-    pass
+    if recommendation_id is None or recommendation_id == "":
+        raise HTTPException(
+            status_code=400,
+            detail="Recommendation ID is required."
+        )
     
+    generator = svc.chat_completion_with_agent(
+        session=session,
+        request_id=request_id,
+        user_profile=user_profile,
+        body=body,
+        recommendation_id=recommendation_id
+    )
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+    )
+
 
 @RECOMMENDATIONS.get(
-    path="/{agent_id}/conversation",
-    summary="Get Recommended Agent's Conversation",
-        description=""" 
-## Retrieve the conversation associated with a recommendation.
+    path="/{recommendation_id}/conversations", 
+    summary="Get Recommendation Conversations",
+    description=""" 
+## Interact with an agent to create a recommendation.
+ 
+This endpoint allows users to interact with a specific agent to create a recommendation.
+It streams the response back as a `StreamingResponse` object, allowing for real-time updates during the interaction.
+The agent's ID is provided in the URL path, and the request body contains the necessary details for the interaction.
 
-This endpoint fetches the conversation associated with a specific recommendation.
-It returns a list of `RecommendationMessage` objects, each containing details about the message such as content, sender, and timestamp.
-The `agent_id` is provided in the URL path to identify
 """,
-    response_model=mdl.GetRecommendationConversationResponse
+    response_model=mdl.GetConversationResponse
 )
-def get_recommendation_conversation(
-    db: Annotated[Session, Depends(dp.get_db)],
+async def get_conversation_by_recommendation(
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
-    agent_id: str,
-) -> mdl.GetRecommendationConversationResponse:
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
+    recommendation_id: str,
+    params: mdl.GetConversationByRecommendationRequest = Depends()
+) -> mdl.GetConversationResponse:
     """
-    Get the conversation associated with a recommendation.
-
-    Args:
-        db (Session): Database session dependency.
-        user_profile (mdl.User): The profile of the current user.
-
-    Returns:
-        List[mdl.RecommendationMessage]: A list of messages in the conversation.
+    Create a new recommendation by interacting with an agent.
     """
-    return mdl.GetRecommendationConversationResponse.mock()
+
+    conversation_id, err = svc.get_conversation_id_by_recommendation(
+        session=session,
+        request_id=request_id,
+        user_profile=user_profile,
+        recommendation_id=recommendation_id,
+        params=params
+    )
+    if err or conversation_id == "":
+        return mdl.GetConversationResponse(
+            status="error",
+            message="No conversation. Call /api/v1/conversation/new first.",
+            request_id=request_id,
+            conversation=mdl.ConversationMaster.failed(),
+            messages=[]
+        )
+    conversation, err = csvc.get_conversation_by_id(
+        session=session,
+        user_profile=user_profile,
+        request_id=request_id,
+        conversation_id=conversation_id,
+        conversation_type="recommendation"
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve conversation: {err}"
+        )
+        
+    messages, err = csvc.get_messages(
+        session=session,
+        user_profile=user_profile,
+        request_id=request_id,
+        conversation_id=conversation_id
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve messages for the conversation: {err}"
+        )
+    
+    return mdl.GetConversationResponse(
+        status="success",
+        message="Conversation details retrieved successfully.",
+        request_id=request_id,
+        conversation=conversation,
+        messages=messages
+    )
+
+

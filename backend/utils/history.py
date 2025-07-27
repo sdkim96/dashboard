@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 import backend.db.conversations_tables as tbl
 import backend.models as mdl
+import backend._types as t
 
 def get_history(
     session: Session,
@@ -12,6 +13,8 @@ def get_history(
     conversation_id: str,
     request_id: str,
     limit: int = 10,
+    *,
+    conversation_type: t.ConversationTypeLiteral = 'chat'
 ) -> Tuple[mdl.History, Exception | None]:
     """
     Returns a history object.
@@ -46,6 +49,7 @@ def get_history(
         )
         .where(Conversation.user_id == user_id)
         .where(Conversation.conversation_id == conversation_id)
+        .where(Conversation.conversation_type == conversation_type)
         .order_by(Conversation.created_at.desc(), Message.created_at.desc())
         .limit(limit)
     )
@@ -94,7 +98,9 @@ def set_history(
     session: Session,
     history: mdl.History,
     new_messages: List[mdl.Message],
-    request_id: str 
+    request_id: str ,
+    *,
+    conversation_type: t.ConversationTypeLiteral = 'chat'
 ) -> ValueError | None:
     """
     Sets the history object.
@@ -118,6 +124,7 @@ def set_history(
                 title=history.title,
                 summary=history.summary,
                 icon=history.icon or "😎",
+                conversation_type=conversation_type,
                 created_at=dt.datetime.now(),
                 updated_at=dt.datetime.now()
             )
@@ -156,4 +163,3 @@ def set_history(
     except Exception as e:
         session.rollback()
         return ValueError(f"Error setting history: {e}")
-

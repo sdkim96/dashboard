@@ -14,6 +14,7 @@ OutputSchemaLiteral = Literal['str', 'int', 'float', 'bool']
 MessageRoleLiteral = Literal['user', 'assistant']
 MessageContentType = Literal['text', 'image', 'file']
 CompletionActionLiteral = Literal['next', 'retry', 'variant']
+ConversationTypeLiteral = Literal['chat', 'recommendation']
 
 DepartmentsLiteral = Literal[
     'Common',

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Box,
   Container,
@@ -64,8 +66,10 @@ import {
   getRecommendationsApiV1RecommendationsGet,
   getRecommendationByIdApiV1RecommendationsRecommendationIdGet,
   createRecommendationApiV1RecommendationsPost,
-  chatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPost,
-  getRecommendationConversationApiV1RecommendationsAgentIdConversationGet,
+  chatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPost,
+  newConversationApiV1ConversationsNewPost,
+  getConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGet
+  
 } from '../client';
 import type {
   RecommendationMaster,
@@ -130,7 +134,10 @@ const RecommendationChat = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
   const [conversationId, setConversationId] = useState<string>('');
+  const [currentFinalParentMessageId, setCurrentFinalParentMessageId] = useState<string | null>(null);
+
   const [showLanding, setShowLanding] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -238,9 +245,10 @@ const RecommendationChat = () => {
   }, [isLoadingDetail]);
 
   const fetchRecommendations = async () => {
+    let response;
     try {
       setIsLoading(true);
-      const response = await getRecommendationsApiV1RecommendationsGet();
+      response = await getRecommendationsApiV1RecommendationsGet();
       if (response.data?.recommendations) {
         setRecommendations(response.data.recommendations);
       }
@@ -253,6 +261,7 @@ const RecommendationChat = () => {
     } finally {
       setIsLoading(false);
     }
+    return response?.data?.recommendations || [];
   };
 
   // 추천 상세 정보 불러오기
@@ -314,6 +323,26 @@ const RecommendationChat = () => {
     fetchRecommendationDetail(rec.recommendation_id);
   };
 
+  const fetchNewConversation = async (): Promise<void> => {
+      try {
+        const response = await newConversationApiV1ConversationsNewPost();
+        if (response.data && response.data.conversation_id) {
+          setConversationId(response.data.conversation_id);
+          setCurrentFinalParentMessageId(response.data.parent_message_id || null);
+        }
+        
+      } catch (error) {
+        console.error('Failed to fetch new conversation:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load conversations',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    };
+
   // 검색 처리
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -332,8 +361,8 @@ const RecommendationChat = () => {
         setLoadingProgress(100);
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        fetchRecommendations();
-
+        const newRecs = await fetchRecommendations();
+  
         const AgentCards: {[key in Departments]: Agent[]} = {
           Common: [],
           HR: [],
@@ -356,6 +385,14 @@ const RecommendationChat = () => {
             })));
           }
         }
+
+        for (const rec of newRecs) {
+          if (rec.recommendation_id === response.data.recommendation?.recommendation_id) {
+            setSelectedRecommendation(rec);
+            break;
+          }
+        }
+        
         setRecommendationDetail(response.data.recommendation);
         setSearchResults(AgentCards);
       }
@@ -365,7 +402,9 @@ const RecommendationChat = () => {
         status: 'error',
         duration: 3000,
       });
+      setSelectedRecommendation(selectedRecommendation);
     } finally {
+      
       setIsLoadingDetail(false);
     }
   };
@@ -374,12 +413,19 @@ const RecommendationChat = () => {
   const handleAgentSelect = async (agent: Agent) => {
     setSelectedAgent(agent);
     setIsDrawerOpen(true);
+    console.log("selected: ", selectedRecommendation);
     
-    try {
-      const conversationResponse = await getRecommendationConversationApiV1RecommendationsAgentIdConversationGet({
-        path: { agent_id: agent.agent_id }
-      });
-      
+      try {
+        const conversationResponse = await getConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGet({
+          path: { recommendation_id: selectedRecommendation?.recommendation_id || '' },
+          query: { agent_id: agent.agent_id || '', agent_version: agent.agent_version || 0 }
+        });
+
+      if (conversationResponse.data && conversationResponse.data.status === 'error') {
+        await fetchNewConversation();
+        return;
+      }
+
       if (conversationResponse.data) {
         setMessages(conversationResponse.data.messages || []);
         setConversationId(conversationResponse.data.conversation?.conversation_id || '');
@@ -395,62 +441,319 @@ const RecommendationChat = () => {
 
     setIsSending(true);
     const userMessage = inputMessage;
+   
+    const requestBody: PostRecommendationCompletionRequest = {
+      action: 'next',
+      conversation_id: conversationId || `conv_${Date.now()}`,
+      parent_message_id: currentFinalParentMessageId || null,
+      llm: {
+        issuer: 'openai',
+        deployment_id: 'gpt-4o-mini'
+      },
+      agent: {
+        agent_id: selectedAgent.agent_id,
+        agent_version: selectedAgent.agent_version,
+        department_id: selectedAgent.department_name || null
+      },
+      messages: [
+        {
+          content: {
+            type: 'text',
+            parts: [userMessage]
+          }
+        }
+      ]
+    };
+
+    const tempUserMessage: MessageResponse = {
+      message_id: `temp_${Date.now()}`,
+      role: 'user',
+      content: {
+        type: 'text',
+        parts: [userMessage]
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      llm: null
+    };
+
+    const aiMessageId = `msg-${Date.now() + 1}`;
+    const aiResponseMessage: MessageResponse = {
+      message_id: aiMessageId,
+      role: 'assistant',
+      content: {
+        type: 'text',
+        parts: ['']
+      },
+      llm: {
+        issuer: 'openai',
+        deployment_id: 'gpt-4o-mini',
+        name: 'GPT-4o-Mini',
+        description: 'GPT-4o-Mini Model',
+        icon_link: null
+      },
+      agent_id: selectedAgent?.agent_id || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, tempUserMessage]);
+    setMessages(prev => [...prev, aiResponseMessage]);
     setInputMessage('');
 
-    try {
-      const requestBody: PostRecommendationCompletionRequest = {
-        action: 'next',
-        conversation_id: conversationId || `conv_${Date.now()}`,
-        parent_message_id: messages[messages.length - 1]?.message_id || null,
-        llm: {
-          issuer: 'openai',
-          deployment_id: 'gpt-4'
-        },
-        agent: {
-          agent_id: selectedAgent.agent_id,
-          agent_version: selectedAgent.agent_version,
-          department_id: selectedAgent.department_name || null
+    const response = await fetch(`http://localhost:8000/api/v1/recommendations/${selectedRecommendation?.recommendation_id}/completion`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 인증 토큰이 있다면 추가
+        // 'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error('No response body');
+    }
+
+    let accumulatedStatus = '';
+    let accumulatedMessage = '';
+    let buffer = '';
+    let currentEvent = '';
+    let isDataStreaming = false;
+
+    while (true) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // 마지막 줄이 완전하지 않을 수 있으므로 버퍼에 유지
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine === '') continue;
+          
+          // SSE 이벤트 파싱
+          if (trimmedLine.startsWith('event:')) {
+            currentEvent = trimmedLine.slice(6).trim();
+            continue;
+          }
+          
+          if (trimmedLine.startsWith('data:')) {
+            const data = trimmedLine.slice(5).trim();
+            
+            try {
+              const parsed = JSON.parse(data);
+              
+
+              if ('message' in parsed) {
+                switch(currentEvent) {
+                  case 'start':
+                    // 시작 이벤트 - 보통 빈 메시지
+                    console.log('Stream started');
+                    break;
+
+                  case 'error':
+                    // 에러 이벤트
+                    console.error('Stream error:', parsed.message);
+                    toast({
+                      title: '오류 발생',
+                      description: parsed.message || '알 수 없는 오류가 발생했습니다.',
+                      status: 'error',
+                      duration: 3000,
+                    })
+                    throw new Error('No response received from server');
+                    
+                    
+                  case 'status':
+                    // 상태 메시지 표시 (🤔, 🧐 등)
+                    
+                    if (!isDataStreaming) {
+                      console.log('Status:', parsed.message);
+                      accumulatedStatus += parsed.message + '\n';
+
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.message_id === aiMessageId 
+                            ? {
+                                ...msg,
+                                content: {
+                                  ...msg.content,
+                                  parts: [accumulatedStatus]
+                                }
+                              }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+                    
+                  case 'data':
+                    // 실제 응답 메시지 - 스트리밍
+                    if (!isDataStreaming) {
+                      // 첫 번째 data 이벤트가 왔을 때 status 메시지를 지우고 시작
+                      isDataStreaming = true;
+                      accumulatedMessage = '';
+                    }
+                    
+                    // 메시지를 누적
+                    if (parsed.message) {
+                      // 줄바꿈 추가 (마크다운 형식 유지)
+                      accumulatedMessage += parsed.message;
+                      
+                      console.log('Streaming data chunk:', parsed.message);
+                      
+                      // 메시지 업데이트 (스트리밍 효과)
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.message_id === aiMessageId 
+                            ? {
+                                ...msg,
+                                content: {
+                                  ...msg.content,
+                                  parts: [accumulatedMessage]
+                                }
+                              }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+                    
+                  case 'done':
+                    // 완료 이벤트 - 전체 메시지가 담겨있음
+                    console.log('Stream completed');
+                    isDataStreaming = false;
+                    
+                    // done 이벤트의 메시지로 최종 확인 (옵션)
+                    // 서버가 done에 전체 메시지를 보내는 경우 사용
+                    if (parsed.message && parsed.message !== '....위 내용 전부 담길예정 ...') {
+                      accumulatedMessage = parsed.message;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.message_id === aiMessageId 
+                            ? {
+                                ...msg,
+                                content: {
+                                  ...msg.content,
+                                  parts: [accumulatedMessage]
+                                }
+                              }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+                    
+                  default:
+                    console.log(`Unknown event type: ${currentEvent}`, parsed);
+                }
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e, data);
+            }
+          }
         }
-      };
+      } catch (readError) {
+        console.error('Error reading stream:', readError);
+        break;
+      }
+    }
 
-      // 사용자 메시지 추가
-      const tempUserMessage: MessageResponse = {
-        message_id: `temp_${Date.now()}`,
-        role: 'user',
-        content: {
-          type: 'text',
-          parts: [userMessage]
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        llm: null
-      };
-      setMessages(prev => [...prev, tempUserMessage]);
-
-      // 스트리밍 응답 처리
-      await chatCompletionWithAgentApiV1RecommendationsAgentIdCompletionPost({
-        path: { agent_id: selectedAgent.agent_id },
-        body: requestBody
-      });
-
-      // 응답 후 대화 다시 불러오기
-      const updatedConversation = await getRecommendationConversationApiV1RecommendationsAgentIdConversationGet({
-        path: { agent_id: selectedAgent.agent_id }
-      });
+    // 버퍼에 남은 데이터 처리
+    if (buffer.trim()) {
+      console.log('Remaining buffer:', buffer);
+      // 남은 버퍼도 처리 시도
+      const lines = buffer.split('\n');
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('event:')) {
+          currentEvent = trimmedLine.slice(6).trim();
+        } else if (trimmedLine.startsWith('data:')) {
+          const data = trimmedLine.slice(5).trim();
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.message && currentEvent === 'data') {
+              if (accumulatedMessage && !accumulatedMessage.endsWith('\n')) {
+                accumulatedMessage += '\n';
+              }
+              accumulatedMessage += parsed.message;
+            }
+          } catch (e) {
+            console.error('Failed to parse remaining buffer:', e);
+          }
+        }
+      }
       
-      if (updatedConversation.data) {
-        setMessages(updatedConversation.data.messages || []);
+      // 최종 메시지 업데이트
+      if (accumulatedMessage) {
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.message_id === aiMessageId 
+              ? {
+                  ...msg,
+                  content: {
+                    ...msg.content,
+                    parts: [accumulatedMessage]
+                  }
+                }
+              : msg
+          )
+        );
+      }
+    }
+
+    // 스트림이 완료되었는데 메시지가 없는 경우
+    if (!accumulatedMessage) {
+      throw new Error('No response received from server');
+    }
+    try {
+      const conversationResponse = await getConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGet({
+        path: { recommendation_id: selectedRecommendation?.recommendation_id || '' },
+        query: { agent_id: selectedAgent.agent_id || '', agent_version: selectedAgent.agent_version || 0 }
+      });
+
+      if (conversationResponse.data && conversationResponse.data.status === 'error') {
+        await fetchNewConversation();
+        return;
+      }
+
+      if (conversationResponse.data) {
+        // 전체 메시지를 overwrite (기존 메시지 대체)
+        setMessages(conversationResponse.data.messages || []);
+        setConversationId(conversationResponse.data.conversation?.conversation_id || '');
       }
     } catch (error) {
+      console.error('대화 불러오기 실패:', error);
       toast({
-        title: '메시지 전송에 실패했습니다.',
+        title: '대화 불러오기 실패',
+        description: '대화 내용을 불러오는 데 실패했습니다.',
         status: 'error',
         duration: 3000,
       });
-    } finally {
-      setIsSending(false);
     }
+    setIsSending(false);
   };
+  
+
+  const handleDrawerClose = () => {
+    setIsDrawerOpen(false);
+    setSelectedAgent(null);
+    setMessages([]);
+    setInputMessage('');
+    setConversationId('');
+    setCurrentFinalParentMessageId(null);
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -937,8 +1240,8 @@ const RecommendationChat = () => {
       <Drawer
         isOpen={isDrawerOpen}
         placement="right"
-        onClose={() => setIsDrawerOpen(false)}
-        size="md"
+        onClose={handleDrawerClose}
+        size="lg"
       >
         <DrawerOverlay />
         <DrawerContent>
@@ -974,9 +1277,85 @@ const RecommendationChat = () => {
                         borderTopLeftRadius={message.role === 'user' ? '2xl' : 'sm'}
                         boxShadow="sm"
                       >
-                        <Text fontSize="sm">
-                          {message.content.parts?.join(' ') || ''}
-                        </Text>
+                        <Box
+                          sx={{
+                            '& p': { mb: 2, lineHeight: 1.6 },
+                            '& p:last-child': { mb: 0 },
+                            '& h1': { fontSize: '2xl', fontWeight: 'bold', mt: 4, mb: 2 },
+                            '& h2': { fontSize: 'xl', fontWeight: 'bold', mt: 3, mb: 2 },
+                            '& h3': { fontSize: 'lg', fontWeight: 'bold', mt: 2, mb: 1 },
+                            '& ul': { pl: 6, mb: 2 },
+                            '& ol': { pl: 6, mb: 2 },
+                            '& li': { mb: 1 },
+                            '& blockquote': { 
+                              pl: 4, 
+                              borderLeft: '4px solid',
+                              borderColor: 'gray.300',
+                              fontStyle: 'italic',
+                              my: 2 
+                            },
+                            '& code': {
+                              bg: message.role === 'user' ? 'whiteAlpha.300' : 'gray.200',
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 'sm',
+                              fontSize: 'sm',
+                              fontFamily: 'monospace'
+                            },
+                            '& pre': {
+                              bg: message.role === 'user' ? 'whiteAlpha.300' : 'gray.800',
+                              color: message.role === 'user' ? 'white' : 'gray.100',
+                              p: 3,
+                              borderRadius: 'md',
+                              overflowX: 'auto',
+                              my: 2,
+                              '& code': {
+                                bg: 'transparent',
+                                p: 0,
+                                color: 'inherit'
+                              }
+                            },
+                            '& table': {
+                              borderCollapse: 'collapse',
+                              my: 2,
+                              width: '100%'
+                            },
+                            '& th, & td': {
+                              border: '1px solid',
+                              borderColor: 'gray.300',
+                              p: 2
+                            },
+                            '& th': {
+                              bg: 'gray.100',
+                              fontWeight: 'bold'
+                            },
+                            '& a': {
+                              color: 'blue.500',
+                              textDecoration: 'underline',
+                              _hover: { color: 'blue.600' }
+                            },
+                            '& hr': {
+                              my: 4,
+                              borderColor: 'gray.300'
+                            }
+                          }}
+                        >
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              // 코드 블록에 복사 버튼 추가 (선택사항)
+                              pre: ({ children }) => (
+                                <Box position="relative">
+                                  <Box as="pre" overflow="auto">
+                                    {children}
+                                  </Box>
+                                </Box>
+                              ),
+                            }}
+                          >
+                            {message.content.parts?.join('') || ''}
+                          </ReactMarkdown>
+                        </Box>
                         <Text fontSize="xs" opacity={0.7} mt={1}>
                           {new Date(message.created_at).toLocaleTimeString('ko-KR', {
                             hour: '2-digit',
@@ -986,20 +1365,6 @@ const RecommendationChat = () => {
                       </Box>
                     </Flex>
                   ))}
-                  {isSending && (
-                    <Flex justify="flex-start">
-                      <Box
-                        bg="white"
-                        px={4}
-                        py={3}
-                        borderRadius="2xl"
-                        borderTopLeftRadius="sm"
-                        boxShadow="sm"
-                      >
-                        <Spinner size="sm" color="purple.500" />
-                      </Box>
-                    </Flex>
-                  )}
                 </VStack>
               </Box>
 

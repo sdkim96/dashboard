@@ -1,18 +1,77 @@
+import asyncio
 import os
+import time
 import datetime as dt
 import collections
 import uuid
 from typing import Tuple, List
 
 from openai import AsyncOpenAI
-from sqlalchemy import select, func
+from sqlalchemy import select, func, distinct
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 
 import backend.db.agent_tables as tbl
+import backend.db.recommendation_tables as rec_tbl
 import backend.models as mdl
 
 from agents.main import SimpleChat, AsyncSimpleAgent
 from agents.registry import AgentRegistry
+
+import backend.utils.logger as lg
+from backend.utils.history import get_history, set_history
+from backend.utils.agent_spec import get_agent_spec
+from backend.utils.streamer import chunk
+
+class AnalyzedContext(BaseModel):
+    title: str = Field(
+        ...,
+        description="분석된 맥락의 제목입니다.",
+        examples=["유저의 휴가 기안문 작성"]
+    )
+    context: str = Field(
+        ...,
+        description="분석되는 특정 맥락입니다.",
+        examples=["유저는 현재 휴가를 신청하려고 합니다. 휴가는 2023년 12월 1일부터 2023년 12월 10일까지입니다. 유저는 휴가 기안문을 작성해야 합니다."]
+    )
+    problems: List[str] = Field(
+        ...,
+        description="유저가 직면한 문제를 나열합니다.",
+        examples=[
+            "팀원 간의 의사소통 부족.",
+            "다가오는 분기의 불명확한 판매 목표.",
+            "프로젝트 마감일이 임박했지만 리소스가 부족함.",
+            "휴가에 대한 깊은 열망"
+        ]
+    )
+    loacation: str = Field(
+        ...,
+        description="유저의 문제나 맥락, 메시지에서 언급된 장소입니다. 혹은 회의록등에서 언급된 장소입니다.",
+        examples=["서울, 대한민국", "부서 회의실", "온라인 회의"]
+    )
+    participants: List[str] = Field(
+        ...,
+        description="맥락에 관련된 참여자 목록입니다.",
+        examples=["John Doe", "Jane Smith"]
+    )
+
+    def description(self) -> str:
+        """
+        Returns a description of the context.
+        """
+        return f"""
+## {self.title}
+시기: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+장소: {self.loacation}
+참여자: {', '.join(self.participants)}
+
+### 맥락
+{self.context}
+
+### 문제
+- {', '.join(self.problems)}
+        
+        """
 
 def _get_agent_details(
     session: Session,
@@ -58,6 +117,7 @@ def _get_agent_details(
             Master.updated_at,
         )
     )
+    lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
     try:
         agents = session.execute(stmt).mappings().all()
     except Exception as e:
@@ -79,7 +139,278 @@ def _get_agent_details(
         )
     
     return results, None
+
+
+def _add_recommendation(
+    session: Session,
+    recommendation: mdl.Recommendation,
+    title: str,
+    description: str,
+    user_id: str,
+) -> Tuple[bool, Exception | None]:
+    """
+    Add a recommendation to the database.
+
+    Args:
+        session (Session): Database session dependency.
+        recommendation (mdl.Recommendation): The recommendation to add.
+
+    Returns:
+        Tuple[mdl.Recommendation, Exception | None]: The added recommendation and any error encountered.
+    """
+    Recommendation = rec_tbl.Recommendation
+    RecommendationAgents = rec_tbl.RecommendationAgents
+
+    session.add(
+        Recommendation(
+            recommendation_id=recommendation.recommendation_id,
+            title=title,
+            description=description,
+            user_id=user_id,
+            work_when=recommendation.work_when,
+            work_where=recommendation.work_where,
+            work_whom=recommendation.work_whom,
+            work_details=recommendation.work_details,
+            created_at=dt.datetime.now(),
+            updated_at=dt.datetime.now(),
+        )
+    )
+    for dept_agents in recommendation.agents:
+        for rec_agent in dept_agents.agents:
+            recommended = RecommendationAgents(
+                recommendation_id=recommendation.recommendation_id,
+                agent_id=rec_agent.agent_id,
+                agent_version=rec_agent.agent_version,
+                created_at=dt.datetime.now(),
+                updated_at=dt.datetime.now(),
+            )
+            session.add(recommended)
+
+    try:
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        return False, e
+
+    return True, None
+
+
+def _add_recommendation_conversation(
+    session: Session,
+    recommendation_id: str,
+    agent_id: str,
+    agent_version: int,
+    conversation_id: str,
+    user_message_id: str,
+    assistant_message_id: str
+) -> Exception | None:
+    """
+    Add a conversation to the recommendation.
+
+    Args:
+        session (Session): Database session dependency.
+        recommendation_id (str): The ID of the recommendation.
+        conversation_id (str): The ID of the conversation.
+
+    Returns:
+        Exception | None: An error if the conversation could not be added, otherwise None.
+    """
+    RecommendationConversations = rec_tbl.RecommendationConversations
+
+    for id in [user_message_id, assistant_message_id]:
+        session.add(
+            RecommendationConversations(
+                recommendation_id=recommendation_id,
+                agent_id=agent_id,
+                agent_version=agent_version,
+                conversation_id=conversation_id,
+                message_id=id,
+            )
+        )
+
+    try:    
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        return e
+
+    return None
+
+
+def get_recommendation_masters(
+    session: Session,
+    user_profile: mdl.User
+) -> Tuple[List[mdl.RecommendationMaster], Exception | None]:
+    results = []
     
+    Recommendation = rec_tbl.Recommendation
+    RecommendationAgents = rec_tbl.RecommendationAgents
+    Agent = tbl.Agent
+
+    stmt = (
+        select(
+            Recommendation.recommendation_id,
+            Recommendation.title,
+            Recommendation.description,
+            Recommendation.created_at,
+            Recommendation.updated_at,
+            func.array_agg(distinct(Agent.department_name)).label("departments"),
+        )
+        .join(
+            RecommendationAgents,
+            Recommendation.recommendation_id == RecommendationAgents.recommendation_id
+        )
+        .join(
+            Agent,
+            RecommendationAgents.agent_id == Agent.agent_id
+        )
+        .where(
+            Recommendation.user_id == user_profile.user_id
+        )
+        .group_by(
+            Recommendation.recommendation_id,
+            Recommendation.title,
+            Recommendation.description,
+            Recommendation.created_at,
+            Recommendation.work_where,
+        )
+    )
+    lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
+    try:
+        recommendations = session.execute(stmt).mappings().all()
+    except Exception as e:
+        return [], e
+    
+    for rec in recommendations:
+        results.append(
+            mdl.RecommendationMaster(
+                recommendation_id=rec.recommendation_id,
+                title=rec.title,
+                description=rec.description,
+                created_at=rec.created_at,
+                updated_at=rec.updated_at,
+                departments=rec.departments or [],
+            )
+        )
+    return results, None
+
+def get_recommendation_by_id(
+    session: Session,
+    user_profile: mdl.User,
+    recommendation_id: str
+) -> Tuple[mdl.Recommendation, Exception | None]:
+    """
+    Get a recommendation by its ID.
+
+    Args:
+        session (Session): Database session dependency.
+        user_profile (mdl.User): The profile of the current user.
+        recommendation_id (str): The ID of the recommendation to retrieve.
+
+    Returns:
+        mdl.Recommendation: The requested recommendation.
+    """
+
+    Recommendation = rec_tbl.Recommendation
+    RecommendedAgents = rec_tbl.RecommendationAgents
+    Agent = tbl.Agent
+    AgentDetail = tbl.AgentDetail
+    AgentTag = tbl.AgentTag
+
+    stmt = (
+        select(
+            Recommendation.recommendation_id,
+            Recommendation.work_when,
+            Recommendation.work_where,
+            Recommendation.work_whom,
+            Recommendation.work_details,
+            RecommendedAgents.agent_id,
+            RecommendedAgents.agent_version,
+            Agent.department_name,
+            Agent.name,
+            Agent.description,
+            func.array_agg(AgentTag.tag).label("tags"),
+            Agent.icon_link,
+            AgentDetail.created_at,
+            AgentDetail.updated_at,
+        )
+        .join(
+            RecommendedAgents,
+            Recommendation.recommendation_id == RecommendedAgents.recommendation_id
+        )
+        .join(
+            AgentDetail,
+            (RecommendedAgents.agent_id == AgentDetail.agent_id) &
+            (RecommendedAgents.agent_version == AgentDetail.version) 
+        )
+        .join(
+            Agent,
+            RecommendedAgents.agent_id == Agent.agent_id
+        )
+        .outerjoin(
+            AgentTag,
+            Agent.agent_id == AgentTag.agent_id
+        )
+        .where(Recommendation.recommendation_id == recommendation_id)
+        .where(Recommendation.user_id == user_profile.user_id)
+        .group_by(
+            Recommendation.recommendation_id,
+            Recommendation.work_when,
+            Recommendation.work_where,
+            Recommendation.work_whom,
+            Recommendation.work_details,
+            RecommendedAgents.agent_id,
+            RecommendedAgents.agent_version,
+            Agent.department_name,
+            Agent.name,
+            Agent.description,
+            Agent.icon_link,
+            AgentDetail.created_at,
+            AgentDetail.updated_at,
+        )
+    )
+    lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
+    try:
+        recommendations = session.execute(stmt).mappings().all()
+    except Exception as err:
+        lg.logger.error(f"Error retrieving recommendation: {err}")
+        return mdl.Recommendation.failed(), err
+    
+    if len(recommendations) == 0:
+        return mdl.Recommendation.failed(), None
+    
+    rec_agents = []
+    for agent in recommendations:
+        rec_agents.append(
+            mdl.AgentRecommendation(
+                department_name=agent.department_name,
+                agents=[
+                    mdl.Agent(
+                        agent_id=agent.agent_id,
+                        agent_version=agent.agent_version,
+                        name=agent.name,
+                        department_name=agent.department_name,
+                        description=agent.description,
+                        tags=agent.tags or [],
+                        icon_link=agent.icon_link,
+                        created_at=agent.created_at,
+                        updated_at=agent.updated_at,
+                    )
+                ]
+            )
+        )
+
+    
+    rcmd = mdl.Recommendation(
+        recommendation_id=recommendations[0].recommendation_id,
+        work_when=recommendations[0].work_when,
+        work_where=recommendations[0].work_where,
+        work_whom=recommendations[0].work_whom,
+        work_details=recommendations[0].work_details,
+        agents=rec_agents
+    )
+    
+    return rcmd, None
 
 async def create_recommendation(
     session: Session,
@@ -100,14 +431,15 @@ async def create_recommendation(
     Returns:
         Tuple[mdl.Recommendation, Exception | None]: The created recommendation and any error encountered.
     """
+    recommendation_id= "rec-" + str(uuid.uuid4())
+    work_when = dt.datetime.now()
+
     simple_agent = AsyncSimpleAgent(
         provider=AsyncOpenAI(
             api_key=os.getenv("OPENAI_API_KEY")
         )
     )
-    chat = SimpleChat(agent=simple_agent)
-    context, err= await chat.aquery(
-        system_prompt=(
+    system_prompt=(
             """ 
 ## Role
 당신은 유저의 문제를 이해하는 AI 어시스턴트입니다.
@@ -119,30 +451,38 @@ async def create_recommendation(
 - 맥락은 **한국어**로 반환해야 합니다.
 - 그의 문제와 맥락을 명확하게 리스트업하세요.
             """
-        ),
-        user_prompt=body.work_details,
-        history=[],
     )
-    if err:
+
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": body.work_details}
+    ]
+
+    context, err= await simple_agent.aparse(
+        messages=messages,
+        deployment_id="gpt-4o-mini",
+        response_fmt=AnalyzedContext
+    )
+    if err or not context:
         return mdl.Recommendation.failed(), err
     
-    agent_details, err = _get_agent_details(
-        session=session,
-    )
+
+    agent_details, err = _get_agent_details(session=session)
     if err:
         return mdl.Recommendation.failed(), err
-
     registry = AgentRegistry(
         agent_cards=[agent.model_dump(mode="json") for agent in agent_details],
     )
     search_results, err = await registry.asearch_by_ai(
         "최적의 AI 에이전트를 추천해줘. 이유와 점수와 함께.",
-        context=context,
+        context=context.description(),
         search_engine=simple_agent
     )
     if err:
         return mdl.Recommendation.failed(), err
     
+
     recommended_depts = collections.defaultdict(list)
     for result in search_results:
         recommended_depts[result["department_name"]].append(mdl.Agent.model_validate(result))
@@ -155,16 +495,234 @@ async def create_recommendation(
                 agents=v
             )
         )
+
+    _add_recommendation(
+        session=session,
+        recommendation=mdl.Recommendation(
+            recommendation_id=recommendation_id,
+            work_when=work_when,
+            work_where=context.loacation,
+            work_whom="".join(context.participants),
+            work_details=body.work_details,
+            agents=results
+        ),
+        title=context.title,
+        description=context.context,
+        user_id=user_profile.user_id
+    )
     
     return mdl.Recommendation(
-        recommendation_id="rec-" + str(uuid.uuid4()),
-        work_when = dt.datetime.now(),
-        work_where= "Notion",
-        work_whom="",
+        recommendation_id=recommendation_id,
+        work_when = work_when,
+        work_where= context.loacation,
+        work_whom="".join(context.participants),
         work_details=body.work_details,
         agents=results
     ), None
 
+
+async def chat_completion_with_agent(
+    session: Session,
+    user_profile: mdl.User,
+    recommendation_id: str,
+    body: mdl.PostRecommendationCompletionRequest,
+    request_id: str
+):
+    """
+    Create a new recommendation by interacting with an agent.
+    This function handles the interaction with an agent to create a recommendation.
+
+    Args:
+        session (Session): Database session dependency.
+        user_profile (mdl.User): The profile of the current user.
+        body (mdl.PostRecommendationCompletionRequest): The request body containing interaction details.
+        request_id (str): The unique request ID for tracking.
+    Returns:
+        StreamingResponse: A streaming response containing the generated recommendation.
+    """
+    start = time.time()
+    yield await chunk(
+        event="start", 
+        data={"message": ""}, 
+    )
+    await asyncio.sleep(0.1)
+    history, err = get_history(
+        session=session,
+        user_id=user_profile.user_id,
+        conversation_id=body.conversation_id,
+        request_id=request_id,
+        conversation_type='recommendation'
+    )
+    yield await chunk(
+        event="status", 
+        data={"message": "🧐 Analyzing your question..."}, 
+    )
+    await asyncio.sleep(0.1)
+    if err:
+        lg.logger.error(
+            f"Error getting history for user {user_profile.user_id} in conversation {body.conversation_id}: {err}"
+        )
+        yield await chunk(
+            "error", 
+            {"message": "❌ Server sent error... Retry later."},
+        )
+        await asyncio.sleep(0.1)
+        return
+    
+    agent_spec, err = get_agent_spec(
+        session=session,
+        agent_id=body.agent.agent_id,
+        agent_version=body.agent.agent_version,
+        request_id=request_id,
+    )
+    if err:
+        lg.logger.error(
+            f"Error getting agent spec for agent {body.agent.agent_id} version {body.agent.agent_version}: {err}"
+        )
+        yield await chunk(
+            "error", 
+            {"message": "❌ Server sent error... Retry later."},
+        )
+        return
+    
+    user_message_id = str(uuid.uuid4())
+    assaistant_message_id = str(uuid.uuid4())
+    new_messages = []
+
+    user = mdl.Message.user_message(
+        message_id=user_message_id,
+        parent_message_id=body.parent_message_id,
+        agent_id=None,
+        content=body.messages[0].content,
+    )
+    new_messages.append(user)
+    await history.update_context(user)
+
+    simple_agent = AsyncSimpleAgent(
+        provider=AsyncOpenAI(
+            api_key=os.getenv("OPENAI_API_KEY")
+        )
+    )
+    yield await chunk(
+        event="status", 
+        data={"message": "🤖 Generating Answers..."}, 
+    )
+    await asyncio.sleep(0.1)
+    
+    messages = [{"role": "system", "content": agent_spec.prompt}]
+    messages.extend(history.marshal_to_messagelike(user))
+    
+    gen = simple_agent.astream(
+        messages=messages,
+        deployment_id=body.llm.deployment_id
+    )
+    
+    parts = ""
+    async for response in gen:
+        if response['type'] == 'delta':
+            yield await chunk(
+                event="data",
+                data={"message": response['content']}
+            )
+            parts += response['content']
+        elif response['type'] == 'done':
+            yield await chunk(
+                event="done",
+                data={"message": response['content']}
+            )
+        elif response['type'] == 'error':
+            yield await chunk(
+                event="error",
+                data={"message": response['content']}
+            )
+            return
+
+        await asyncio.sleep(0.02)
+    
+    assistant = mdl.Message.assistant_message(
+        message_id=assaistant_message_id,
+        parent_message_id=user_message_id,
+        agent_id=body.agent.agent_id,
+        content=mdl.Content(type='text', parts=[parts]),
+        llm_deployment_id=body.llm.deployment_id
+    )
+    new_messages.append(assistant)
+    err = set_history(
+        session=session,
+        history=history,
+        new_messages=new_messages,
+        request_id=request_id,   
+        conversation_type='recommendation'
+    )
+    if err:
+        lg.logger.error(
+            f"Error setting history for user {user_profile.user_id} in conversation {body.conversation_id}: {err}"
+        )
+        yield await chunk(
+            "error", 
+            {"message": "❌ Server sent error... Retry later."},
+        )
+        return
+    
+    err = _add_recommendation_conversation(
+        session=session,
+        recommendation_id=recommendation_id,
+        agent_id=body.agent.agent_id,
+        agent_version=body.agent.agent_version,
+        conversation_id=body.conversation_id,
+        user_message_id=user_message_id,
+        assistant_message_id=assaistant_message_id
+    )
+    if err:
+        lg.logger.error(
+            f"Error setting recommendation for user {user_profile.user_id} in conversation {body.conversation_id}: {err}"
+        )
+        yield await chunk(
+            "error", 
+            {"message": "❌ Server sent error... Retry later."},
+        )
+        return
     
 
+def get_conversation_id_by_recommendation(
+    session: Session,
+    request_id: str,
+    user_profile: mdl.User,
+    recommendation_id: str,
+    params: mdl.GetConversationByRecommendationRequest
+) -> Tuple[str, Exception | None]:
+    """
+    Get the conversation ID by recommendation ID.
+
+    Args:
+        session (Session): Database session dependency.
+        request_id (str): The unique request ID for tracking.
+        user_profile (mdl.User): The profile of the current user.
+        recommendation_id (str): The ID of the recommendation.
+        params (mdl.GetConversationByRecommendationRequest): Additional parameters for the request.
+
+    Returns:
+        Tuple[str, Exception | None]: The conversation ID and any error encountered.
+    """
+    RecommendationConversations = rec_tbl.RecommendationConversations
+
+    stmt = (
+        select(RecommendationConversations.conversation_id)
+        .where(
+            RecommendationConversations.recommendation_id == recommendation_id,
+            RecommendationConversations.agent_id == params.agent_id,
+            RecommendationConversations.agent_version == params.agent_version
+        )
+    )
     
+    lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
+    
+    try:
+        result = session.execute(stmt).scalars().all()
+    except Exception as e:
+        return "", e
+    
+    if len(result) == 0:
+        return "", None
+
+    return result[0], None

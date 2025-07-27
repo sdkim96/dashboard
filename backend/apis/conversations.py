@@ -80,13 +80,20 @@ def get_conversation(
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
     request_id: Annotated[str, Depends(dp.generate_request_id)],
     conversation_id: str,
+    params: mdl.GetConversationRequest = Depends()
 ) -> mdl.GetConversationResponse:
     
+    conversation_type = 'chat'
+    
+    if params.recommendation_id:
+        conversation_type = 'recommendation'
+
     conversation, err = svc.get_conversation_by_id(
         session=session,
         user_profile=user_profile,
         request_id=request_id,
-        conversation_id=conversation_id
+        conversation_id=conversation_id,
+        conversation_type=conversation_type
     )
     if err:
         return mdl.GetConversationResponse(

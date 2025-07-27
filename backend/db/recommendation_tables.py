@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import Optional
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, Index
 from sqlalchemy.orm import mapped_column, DeclarativeBase, Mapped
 
 class RecommendationsBase(DeclarativeBase):
@@ -39,6 +39,10 @@ class Recommendation(RecommendationsBase):
     created_at: Mapped[dt.datetime] = mapped_column()
     updated_at: Mapped[dt.datetime] = mapped_column()
 
+    __table_args__ = (
+        Index("ix_recommendation_user_id", "user_id"),
+    )
+
 
 class RecommendationAgents(RecommendationsBase):
     __tablename__ = "recommendation_agents"
@@ -58,38 +62,51 @@ class RecommendationAgents(RecommendationsBase):
     created_at: Mapped[dt.datetime] = mapped_column()
     updated_at: Mapped[dt.datetime] = mapped_column()
 
-
-class RecommendationMessage(RecommendationsBase):
-    __tablename__ = "recommendation_message"
-
-    message_id: Mapped[str] = mapped_column(
-        primary_key=True,
-        doc="The identifier of the message associated with this recommendation."
+    __table_args__ = (
+        Index("ix_recommendation_agents_rec_id", "recommendation_id"),
+        Index("ix_recommendation_agents_agent_id_version", "agent_id", "agent_version"),
     )
+
+
+class RecommendationConversations(RecommendationsBase):
+    __tablename__ = "recommendation_conversations"
+
     recommendation_id: Mapped[str] = mapped_column(
-        doc="A unique identifier for the recommendation message."
-    )
-    parent_message_id: Mapped[Optional[str]] = mapped_column(
-        doc="The identifier of the parent message in the conversation, if applicable."
+        primary_key=True,
+        doc="A unique identifier for the recommendation conversation."
     )
     agent_id: Mapped[str] = mapped_column(
-        doc="The identifier of the agent associated with this recommendation message."
+        primary_key=True,
+        doc="The identifier of the agent associated with this recommendation conversation."
     )
     agent_version: Mapped[int] = mapped_column(
-        doc="The version of the agent associated with this recommendation message."
+        primary_key=True,
+        doc="The version of the agent associated with this recommendation conversation."
     )
-    role: Mapped[str] = mapped_column(
-        doc="Role of the message sender, e.g., 'user' or 'assistant'."
+    conversation_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc="The identifier of the conversation associated with this recommendation."
     )
-    content: Mapped[str] = mapped_column(
-        doc="The content of the message in the conversation."
+    message_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc="The identifier of the message associated with this recommendation conversation."
     )
-    llm_deployment_id: Mapped[Optional[str]] = mapped_column(
-        doc="The llm_model used to generate the message. It can be a specific model name"
-    )
-    created_at: Mapped[dt.datetime] = mapped_column(
-        doc="Timestamp when the message was created.",
-    )
-    updated_at: Mapped[dt.datetime] = mapped_column(
-        doc="Timestamp when the message was last updated.",
-    )
+
+def create_recommendations_all(engine: Engine):
+    """
+    Creates all tables related to recommendations in the database.
+
+    Args:
+        engine (Engine): SQLAlchemy engine to connect to the database.
+    """
+    RecommendationsBase.metadata.create_all(bind=engine)
+
+
+def drop_recommendations_all(engine: Engine):
+    """
+    Drops all tables related to recommendations in the database.
+
+    Args:
+        engine (Engine): SQLAlchemy engine to connect to the database.
+    """
+    RecommendationsBase.metadata.drop_all(bind=engine)

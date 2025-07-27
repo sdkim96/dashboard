@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import Optional
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, Index
 from sqlalchemy.orm import mapped_column, DeclarativeBase, Mapped
 
 class AgentBase(DeclarativeBase):
@@ -73,6 +73,10 @@ class AgentDetail(AgentBase):
         doc="Timestamp when the agent detail was last updated."
     )
 
+    __table_args__ = (
+        Index("ix_agent_detail_agent_id_version", "agent_id", "version"),
+    )
+
     def __repr__(self):
         return f"<AgentDetail(agent_id={self.agent_id}, version={self.version})>"
    
@@ -99,6 +103,10 @@ class AgentTag(AgentBase):
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
         doc="Timestamp when the agent tag was last updated."
+    )
+    __table_args__ = (
+        Index("ix_agent_tag_agent_id_version", "agent_id", "agent_version"),
+        Index("ix_agent_tag_agent_id", "agent_id"),
     )
     
     def __repr__(self):
