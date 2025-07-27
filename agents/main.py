@@ -1,5 +1,4 @@
-import os
-from typing import List, Optional, Tuple, Generic, TypeVar, cast
+from typing import List,  Tuple, Generic, TypeVar, cast
 
 from pydantic import BaseModel, Field, ConfigDict, create_model
 from anthropic import Anthropic, AsyncAnthropic
@@ -27,39 +26,6 @@ class Attribute(BaseModel):
         description="type of the output schema, e.g., 'str', 'int', 'float', 'bool'.",
         examples=['str', 'int', 'float', 'bool']
     )
-
-class SimpleChat:
-    """
-    A simple chat with no context
-    """
-
-    def __init__(self, agent: "AsyncSimpleAgent") -> None:
-        self.agent = agent
-
-    async def aquery(
-        self,
-        system_prompt: str,
-        user_prompt: str,
-        history: Optional[List[dict]] = [],
-    ) -> Tuple[str, Exception | None]:
-        """
-        Creates a SimpleChat instance with the provided prompts and history.
-        """
-        messages = [
-            {"role": "system", "content": system_prompt},
-        ]
-        if history:
-            messages.extend(history)
-        messages.append({"role": "user", "content": user_prompt})
-
-        response, err = await self.agent.ainvoke(
-            messages=messages,
-            deployment_id="gpt-4o"
-        )
-        if err:
-            return "", err
-        return response, None
-
 
 class AsyncSimpleAgent(Generic[AsyncProviderT]):
     def __init__(
@@ -179,42 +145,4 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         else:
             raise NotImplementedError("Streaming is not implemented for this provider.")
 
-    def _to_pydantic_model(self, output_schema: List[Attribute]) -> type[BaseModel]:
-
-        kwargs = {}
-        for attr in output_schema:
-            kwargs[attr.attribute] = (eval(attr.type), Field(
-                ...,
-                description=f"{attr.attribute} of the output schema",
-                examples=[f"example of {attr.attribute}"]
-            ))
-
-        Model = create_model(
-            f"OutputSchema",
-            __base__=BaseModel,
-            **kwargs,
-        )
-        return Model
-
-
-    def _choose_model(
-        self, 
-        issuer: str, 
-        deploy_version: str
-    ):
-
-        api_key = os.getenv(self.key_of_env)
-        if not api_key:
-            raise ValueError(f"API key for {issuer} is not set in environment variables.")
-
-        match issuer:
-            case "openai":
-                return OpenAI(
-                    api_key=api_key
-                )
-            case "anthropic":
-                return Anthropic(
-                    api_key=api_key
-                )
-            case _:
-                raise ValueError(f"Unsupported issuer: {issuer}")
+    

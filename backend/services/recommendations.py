@@ -15,7 +15,7 @@ import backend.db.agent_tables as tbl
 import backend.db.recommendation_tables as rec_tbl
 import backend.models as mdl
 
-from agents.main import SimpleChat, AsyncSimpleAgent
+from agents.main import AsyncSimpleAgent
 from agents.registry import AgentRegistry
 
 import backend.utils.logger as lg
