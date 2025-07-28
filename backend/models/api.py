@@ -71,16 +71,7 @@ class GetAvailableAgentsRequest(BaseRequest):
         """Offset to be used in DB queries"""
         return (self.page - 1) * self.size
     
-
-class GetConversationRequest(BaseRequest):
-    """
-    GET /api/v1/conversations/{conversation_id} Request model
-    """
-    recommendation_id: str | None = Field(
-        ...,
-        description="ID of the conversation to retrieve.",
-        examples=[str(uuid.uuid4())]
-    )
+    
 
 class PostPublishAgentRequest(BaseRequest):
     """
@@ -268,30 +259,13 @@ class GetMeResponse(BaseResponse):
     user: User = Field(
         ...,
         description="User information model containing details about the current user.",
-        examples=[User(
-            user_id=str(uuid.uuid4()),
-            username="example_user",
-            email="ss@gamil.com",
-            icon_link="https://example.com/icon.png",
-            is_superuser=False,
-        )]
-    )
-    agents: List[Agent] = Field(
-        default_factory=list,
-        description="List of agent IDs that the user is subscribed to.",
-        examples=[[Agent.mock(type="BusinessSupport")]]
+        examples=[User.mock()]
     )
     llms: List[LLMModel] = Field(
         default_factory=list,
         description="List of model IDs that the user has access to.",
         examples=[[
-            LLMModel(
-                issuer="openai",
-                deployment_id="deployment-123",
-                name="Example Model", 
-                description="An example LLM model.", 
-                icon_link=None
-            )
+            LLMModel.mock()
         ]]
     )
 
@@ -346,14 +320,7 @@ class GetAvailableAgentsResponse(BaseResponse):
         default_factory=list,
         description="List of available agents.",
         examples=[[
-            AgentMarketPlace(
-                agent_id="agent-123", 
-                agent_version=1,
-                name="Example Agent", 
-                icon_link=None,
-                tags=["cool", "good"],
-                subscribed=True
-            )
+            AgentMarketPlace.mock()
         ]]
     )
     total: int = Field(

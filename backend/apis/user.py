@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 import backend.constants as c
@@ -35,63 +35,20 @@ def get_me(
     Returns:
         GetMeResponse: User information model.
     """
-    agents, llms, err = svc.get_me(
+    llms, err = svc.get_me(
         session=session,
         user_profile=user_profile,
         request_id=request_id,
     )
     if err:
-        return mdl.GetMeResponse(
-            status="error",
-            message="Failed to retrieve conversations.",
-            request_id=request_id,
-            user=user_profile,
-            agents=agents,
-            llms=llms
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve user information: {err}"
         )
     return mdl.GetMeResponse(
         status="success",
         message="User information retrieved successfully.",
         request_id=request_id,
         user=user_profile,
-        agents=agents,
         llms=llms
     )
-
-    # return mdl.GetMeResponse(
-    #     status="success",
-    #     message="Conversations retrieved successfully.",
-    #     request_id=request_id,
-    #     conversations=conversations
-    # )
-    # return mdl.GetMeResponse(
-    #     status="success",
-    #     message="User information retrieved successfully.",
-    #     request_id=request_id,
-    #     user=mdl.User(
-    #         user_id="user-123",
-    #         username="example_user",
-    #         email="",
-    #         icon_link="https://example.com/icon.png",
-    #         is_superuser=False,
-    #     ),
-    #     agents=[
-    #         mdl.Agent(
-    #             agent_id="agent-123", 
-    #             name="Example Agent", 
-    #             icon_link=None, 
-    #             tags=["cool", "good"],
-    #             agent_version=1,
-    #         )
-    #     ],
-    #     models=[
-    #         mdl.LLMModel(
-    #             issuer="openai",
-    #             name="Example Model",
-    #             description="An example LLM model.",
-    #             deployment_id="deployment-123",
-    #             icon_link=None
-    #         )
-    #     ]
-    # )
-    

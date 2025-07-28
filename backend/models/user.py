@@ -26,3 +26,14 @@ class User(BaseModel):
         description="Flag indicating whether the user has superuser privileges.",
         examples=[True, False]
     )
+
+    @classmethod
+    def mock(cls) -> "User":
+        """Create a mock user instance for testing."""
+        return cls(
+            user_id="user-123",
+            username="example_user",
+            email="example@gmail.com",
+            icon_link="https://example.com/icon.png",
+            is_superuser=False,
+        )

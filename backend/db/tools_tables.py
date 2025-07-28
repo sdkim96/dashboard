@@ -38,27 +38,6 @@ class Tool(ToolBase):
     def __repr__(self):
         return f"<Tool(tool_id={self.tool_id}, name={self.tool_name})>"
     
-
-class ToolSubscriber(ToolBase):
-    __tablename__ = 'tool_subscriber'
-    
-    tool_id: Mapped[str] = mapped_column(
-        primary_key=True,
-        doc="Foreign key referencing the tool this subscription belongs to."
-    )
-    user_id: Mapped[str] = mapped_column(
-        primary_key=True,
-        doc="Foreign key referencing the user who subscribed to the tool."
-    )
-    created_at: Mapped[dt.datetime] = mapped_column(
-        default=dt.datetime.now,
-        doc="Timestamp when the subscription was created."
-    )
-
-    def __repr__(self):
-        return f"<ToolSubscriber(tool_id={self.tool_id}, user_id={self.user_id})>"
-    
-
 def create_tool_all(engine: Engine):
     ToolBase.metadata.create_all(engine)
 

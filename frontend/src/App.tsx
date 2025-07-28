@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Box } from '@chakra-ui/react'
 
-import type { ActiveTab } from './types/activeTabs'
+import type { ActiveTab } from './types/type'
 
 import Sidebar from './components/Sidebar'
 
@@ -20,8 +20,8 @@ function App() {
           switch(activeTab) {
             case 'marketplace':
               return <MarketplaceView />
-            case 'chat':
-              return <ChatView />
+            // case 'chat':
+            //   return <ChatView />
             case 'recommendations':
               return <RecommendationsView />
             default:

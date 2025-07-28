@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -106,21 +106,8 @@ const LOADING_TIPS = [
   { icon: FiAward, text: "최고의 결과를 위해 준비하고 있어요", color: "teal.400" },
 ];
 
-// 부서별 아이콘 매핑
-const DEPARTMENT_ICONS: Record<string, any> = {
-  Common: FiCommand,
-  HR: FiUsers,
-  Sales: FiTrendingUp,
-  Marketing: FiZap,
-  CustomerSupport: FiHeart,
-  Finance: FiBriefcase,
-  Planning: FiCompass,
-  BusinessSupport: FiLayers,
-  ProductDevelopment: FiCpu,
-  InternationalSales: FiGlobe,
-};
-
-type Departments = 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales';
+import type { Departments } from '../types/departments';
+import { DEPARTMENT_ICONS, DEPARTMENTS_STYLES } from '../types/departments';
 
 const RecommendationChat = () => {
   const [recommendations, setRecommendations] = useState<RecommendationMaster[]>([]);
@@ -152,73 +139,16 @@ const RecommendationChat = () => {
   const userMessageBg = useColorModeValue('blue.500', 'blue.600');
   const cardHoverShadow = useColorModeValue('xl', 'dark-lg');
 
-  const DEPARTMENTS_STYLES: Record<Departments, { id: string; color: string; name: string; bgGradient: string }> = {
-    Common: {
-      id: "Common",
-      color: 'blue',
-      name: 'Common',
-      bgGradient: 'linear(to-r, blue.400, blue.600)',
-    },
-    HR: {
-      id: "HR",
-      color: 'green',
-      name: 'HR',
-      bgGradient: 'linear(to-r, green.400, green.600)',
-    },
-    Sales: {
-      id: "Sales",
-      color: 'orange',
-      name: 'Sales',
-      bgGradient: 'linear(to-r, orange.400, orange.600)',
-    },
-    Marketing: {
-      id: "Marketing",
-      color: 'purple',
-      name: 'Marketing',
-      bgGradient: 'linear(to-r, purple.400, purple.600)',
-    },
-    CustomerSupport: {
-      id: "CustomerSupport",
-      color: 'teal',
-      name: 'Customer Support',
-      bgGradient: 'linear(to-r, teal.400, teal.600)',
-    },
-    Finance: {
-      id: "Finance",
-      color: 'yellow',
-      name: 'Finance',
-      bgGradient: 'linear(to-r, yellow.400, yellow.600)',
-    },
-    Planning: {
-      id: "Planning",
-      color: 'pink',
-      name: 'Planning',
-      bgGradient: 'linear(to-r, pink.400, pink.600)',
-    },
-    BusinessSupport: {
-      id: "BusinessSupport",
-      color: 'cyan',
-      name: 'Business Support',
-      bgGradient: 'linear(to-r, cyan.400, cyan.600)',
-    },
-    ProductDevelopment: {
-      id: "ProductDevelopment",
-      color: 'red',
-      name: 'Product Development',
-      bgGradient: 'linear(to-r, red.400, red.600)',
-    },
-    InternationalSales: {
-      id: "InternationalSales",
-      color: 'purple',
-      name: 'International Sales',
-      bgGradient: 'linear(to-r, purple.400, purple.600)',
-    },  
-  };
-
   // 추천 목록 불러오기
   useEffect(() => {
     fetchRecommendations();
   }, []);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+  
 
   // 로딩 중 팁 로테이션
   useEffect(() => {
@@ -1365,6 +1295,7 @@ const RecommendationChat = () => {
                       </Box>
                     </Flex>
                   ))}
+                  <div ref={messagesEndRef} />
                 </VStack>
               </Box>
 

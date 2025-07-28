@@ -87,12 +87,12 @@ def _get_agent_details(
             Master.agent_id,
             Detail.version,
             Master.department_name,
-            Master.description,
+            Detail.description,
             Master.name,
             func.array_agg(Tags.tag).label("tags"),
-            Master.icon_link,
-            Master.created_at,
-            Master.updated_at,
+            Detail.icon_link,
+            Detail.created_at,
+            Detail.updated_at,
         )
         .join(
             Detail,
@@ -103,18 +103,18 @@ def _get_agent_details(
             Master.agent_id == Tags.agent_id
         )
         .where(
-            Master.is_active.is_(True),
-            Master.is_deleted.is_(False),
+            Detail.is_active.is_(True),
+            Detail.is_deleted.is_(False),
         )
         .group_by(
             Master.agent_id,
             Detail.version,
             Master.department_name,
-            Master.description,
+            Detail.description,
             Master.name,
-            Master.icon_link,
-            Master.created_at,
-            Master.updated_at,
+            Detail.icon_link,
+            Detail.created_at,
+            Detail.updated_at,
         )
     )
     lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
@@ -328,9 +328,9 @@ def get_recommendation_by_id(
             RecommendedAgents.agent_version,
             Agent.department_name,
             Agent.name,
-            Agent.description,
+            AgentDetail.description,
             func.array_agg(AgentTag.tag).label("tags"),
-            Agent.icon_link,
+            AgentDetail.icon_link,
             AgentDetail.created_at,
             AgentDetail.updated_at,
         )
@@ -363,8 +363,8 @@ def get_recommendation_by_id(
             RecommendedAgents.agent_version,
             Agent.department_name,
             Agent.name,
-            Agent.description,
-            Agent.icon_link,
+            AgentDetail.description,
+            AgentDetail.icon_link,
             AgentDetail.created_at,
             AgentDetail.updated_at,
         )
@@ -475,7 +475,7 @@ async def create_recommendation(
         agent_cards=[agent.model_dump(mode="json") for agent in agent_details],
     )
     search_results, err = await registry.asearch_by_ai(
-        "최적의 AI 에이전트를 추천해줘. 이유와 점수와 함께.",
+        "최적의 AI 에이전트를 10개 추천해줘. 이유와 점수와 함께.",
         context=context.description(),
         search_engine=simple_agent
     )
@@ -502,7 +502,7 @@ async def create_recommendation(
             recommendation_id=recommendation_id,
             work_when=work_when,
             work_where=context.loacation,
-            work_whom="".join(context.participants),
+            work_whom=", ".join(context.participants),
             work_details=body.work_details,
             agents=results
         ),

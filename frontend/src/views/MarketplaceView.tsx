@@ -5,13 +5,11 @@ import {
   SimpleGrid,
   Card,
   CardBody,
-  CardHeader,
   Badge,
   Button,
   HStack,
   VStack,
-  Avatar,
-  Flex,
+  IconButton,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -30,15 +28,38 @@ import {
   WrapItem,
   useToast,
   Skeleton,
-  SkeletonText
+  SkeletonText,
+  Icon,
+  Center,
+  Tooltip,
+  Fade,
+  ScaleFade,
+  Portal,
+  useColorModeValue,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverBody,
+  PopoverArrow,
+  PopoverCloseButton,
+  Grid,
+  GridItem
 } from '@chakra-ui/react';
-import { HiSearch, HiStar, HiDownload, HiUser, HiCalendar, HiTag } from 'react-icons/hi';
+import { 
+  HiSearch, 
+  HiStar, 
+  HiDownload, 
+  HiUser, 
+  HiCalendar, 
+  HiTag,
+  HiChevronRight,
+  HiX
+} from 'react-icons/hi';
 
 // 정확한 API import
 import { 
   getAvailableAgentsApiV1AgentsGet,
   getAgentApiV1AgentsAgentIdVersionAgentVersionGet,
-  subscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePost,
   
 } from '../client';
 
@@ -46,105 +67,203 @@ import {
 import type {
   AgentMarketPlace,
   AgentDetail,
-  GetAvailableAgentsResponse,
-  GetAgentResponse,
+  Attribute,
 } from '../client';
 
-// 카드 컴포넌트 Props
-interface AgentCardProps {
-  agent: AgentMarketPlace;
-  onCardClick: (agent: AgentMarketPlace) => void;
+// 부서 타입 정의
+import type { Departments } from '../types/departments';
+import { DEPARTMENT_ICONS, DEPARTMENTS_STYLES } from '../types/departments';
+
+// 확장된 AgentMarketPlace 타입 (department_name 포함)
+interface AgentWithDepartment extends AgentMarketPlace {
+  department_name: Departments;
 }
 
-const AgentCard: React.FC<AgentCardProps> = ({ agent, onCardClick }) => {
-  const isSubscribed = agent.subscribed || false;
-  
+// 부서 원형 컴포넌트
+interface DepartmentCircleProps {
+  department: Departments;
+  agentCount: number;
+  agents: AgentWithDepartment[];
+  onAgentClick: (agent: AgentWithDepartment) => void;
+  isSelected: boolean;
+  onDepartmentClick: () => void;
+}
+
+const DepartmentCircle: React.FC<DepartmentCircleProps> = ({
+  department,
+  agentCount,
+  agents,
+  onAgentClick,
+  isSelected,
+  onDepartmentClick,
+}) => {
+  const departmentStyle = DEPARTMENTS_STYLES[department];
+  const DepartmentIcon = DEPARTMENT_ICONS[department];
+  const shadowColor = useColorModeValue(`${departmentStyle.color}.200`, `${departmentStyle.color}.800`);
+  const bgColor = useColorModeValue('white', 'gray.800');
+
   return (
-    <Card
-      cursor="pointer"
-      transition="all 0.2s"
-      _hover={{
-        transform: 'translateY(-2px)',
-        boxShadow: 'lg'
-      }}
-      onClick={() => onCardClick(agent)}
-      h="200px"
-      bg={isSubscribed ? "gray.50" : "white"}
-      borderColor={isSubscribed ? "gray.300" : "gray.200"}
-      borderWidth="1px"
-    >
-      <CardHeader pb={2}>
-        <Flex align="center" justify="space-between">
-          <HStack spacing={3}>
-            <Avatar
-              size="sm"
-              name={agent.name}
-              src={agent.icon_link || undefined}
-              bg={isSubscribed ? "gray.400" : "blue.500"}
-            />
-            <VStack align="start" spacing={0} flex={1}>
-              <Text fontSize="md" fontWeight="bold" noOfLines={1}>
-                {agent.name}
-              </Text>
-              <HStack spacing={2}>
-                <Badge size="sm" colorScheme="gray">
-                  v{agent.agent_version}
-                </Badge>
-                {isSubscribed && (
-                  <Badge size="sm" colorScheme="green" variant="solid">
-                    ✓ Subscribed
-                  </Badge>
-                )}
-              </HStack>
-            </VStack>
-          </HStack>
-        </Flex>
-      </CardHeader>
+    <Box position="relative">
+      {/* 부서 원 */}
+      <Center>
+        <Box
+          position="relative"
+          w={{ base: "120px", md: "140px", lg: "160px" }}
+          h={{ base: "120px", md: "140px", lg: "160px" }}
+          borderRadius="full"
+          bgGradient={departmentStyle.bgGradient}
+          cursor="pointer"
+          transition="all 0.3s ease"
+          transform={isSelected ? "scale(1.1)" : "scale(1)"}
+          boxShadow={isSelected ? `0 20px 40px ${shadowColor}` : `0 4px 12px ${shadowColor}`}
+          onClick={onDepartmentClick}
+          zIndex={isSelected ? 10 : 1}
+        >
+          <Center h="full" flexDirection="column" color="white" p={4}>
+            <Icon as={DepartmentIcon} boxSize={{ base: 8, md: 10 }} mb={2} />
+            <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" textAlign="center">
+              {departmentStyle.name}
+            </Text>
+            <Badge 
+              mt={2} 
+              colorScheme="whiteAlpha" 
+              bg="whiteAlpha.300"
+              color="white"
+              fontSize="xs"
+            >
+              {agentCount} agents
+            </Badge>
+          </Center>
+        </Box>
+      </Center>
 
-      <CardBody pt={0}>
-        <VStack align="stretch" spacing={3}>
-          {/* Tags */}
-          {agent.tags && agent.tags.length > 0 && (
-            <Wrap spacing={1}>
-              {agent.tags.slice(0, 3).map((tag, index) => (
-                <WrapItem key={index}>
-                  <Badge size="sm" colorScheme="blue" variant="subtle">
-                    {tag}
-                  </Badge>
-                </WrapItem>
-              ))}
-              {agent.tags.length > 3 && (
-                <WrapItem>
-                  <Badge size="sm" colorScheme="gray" variant="subtle">
-                    +{agent.tags.length - 3}
-                  </Badge>
-                </WrapItem>
-              )}
-            </Wrap>
-          )}
+      {/* 에이전트 목록 - 선택되었을 때 표시 */}
+      {isSelected && agents.length > 0 && (
+        <Portal>
+          <Box
+            position="fixed"
+            top="50%"
+            left="50%"
+            transform="translate(-50%, -50%)"
+            zIndex={1000}
+          >
+            <ScaleFade in={isSelected} initialScale={0.9}>
+              <Box
+                bg={bgColor}
+                p={6}
+                borderRadius="xl"
+                boxShadow="2xl"
+                maxW="600px"
+                maxH="70vh"
+                overflowY="auto"
+                border="1px solid"
+                borderColor={`${departmentStyle.color}.200`}
+              >
+                <VStack spacing={4} align="stretch">
+                  <HStack justify="space-between" mb={2}>
+                    <HStack spacing={3}>
+                      <Box
+                        p={2}
+                        borderRadius="lg"
+                        bgGradient={departmentStyle.bgGradient}
+                        color="white"
+                      >
+                        <Icon as={DepartmentIcon} boxSize={6} />
+                      </Box>
+                      <VStack align="start" spacing={0}>
+                        <Text fontSize="lg" fontWeight="bold">
+                          {departmentStyle.name}
+                        </Text>
+                        <Text fontSize="sm" color="gray.500">
+                          {agentCount} available agents
+                        </Text>
+                      </VStack>
+                    </HStack>
+                    <IconButton
+                      aria-label="Close"
+                      icon={<HiX />}
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDepartmentClick();
+                      }}
+                    />
+                  </HStack>
 
-          <Flex justify="space-between" align="center">
-            <HStack spacing={4} fontSize="sm" color="gray.600">
-              <HStack spacing={1}>
-                <HiStar />
-                <Text>4.8</Text>
-              </HStack>
-              <HStack spacing={1}>
-                <HiDownload />
-                <Text>1.2k</Text>
-              </HStack>
-            </HStack>
-          </Flex>
-        </VStack>
-      </CardBody>
-    </Card>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+                    {agents.map((agent) => (
+                      <Card
+                        key={`${agent.agent_id}-v${agent.agent_version}`}
+                        size="sm"
+                        cursor="pointer"
+                        onClick={() => onAgentClick(agent)}
+                        transition="all 0.2s"
+                        borderWidth="1px"
+                        borderColor={`${departmentStyle.color}.100`}
+                        _hover={{
+                          transform: "translateX(4px)",
+                          boxShadow: "md",
+                          borderColor: `${departmentStyle.color}.300`,
+                          bg: `${departmentStyle.color}.50`
+                        }}
+                      >
+                        <CardBody>
+                          <HStack spacing={3}>
+                            <VStack align="start" spacing={1} flex={1}>
+                              <Text fontSize="sm" fontWeight="semibold" noOfLines={1}>
+                                {agent.name}
+                              </Text>
+                              <HStack spacing={2} fontSize="xs" color="gray.500">
+                                <HStack spacing={0.5}>
+                                  <Icon as={HiStar} boxSize={3} color="orange.400" />
+                                  <Text>4.8</Text>
+                                </HStack>
+                                <Text>•</Text>
+                                <Text>v{agent.agent_version}</Text>
+                              </HStack>
+                              {agent.tags && agent.tags.length > 0 && (
+                                <HStack spacing={1} mt={1}>
+                                  {agent.tags.slice(0, 2).map((tag, index) => (
+                                    <Badge 
+                                      key={index}
+                                      size="xs" 
+                                      colorScheme={departmentStyle.color}
+                                      variant="subtle"
+                                      fontSize="10px"
+                                    >
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                  {agent.tags.length > 2 && (
+                                    <Text fontSize="10px" color="gray.500">
+                                      +{agent.tags.length - 2}
+                                    </Text>
+                                  )}
+                                </HStack>
+                              )}
+                            </VStack>
+                            <Icon as={HiChevronRight} color="gray.400" boxSize={4} />
+                          </HStack>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+                </VStack>
+              </Box>
+            </ScaleFade>
+          </Box>
+        </Portal>
+      )}
+    </Box>
   );
 };
 
+// 에이전트 상세 모달 (동일하게 유지)
 interface AgentDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  agent: AgentMarketPlace | null;
+  agent: AgentWithDepartment | null;
 }
 
 const AgentDetailModal: React.FC<AgentDetailModalProps> = ({ 
@@ -154,13 +273,10 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
 }) => {
   const [agentDetail, setAgentDetail] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [subscribing, setSubscribing] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
     if (isOpen && agent) {
-      setIsSubscribed(agent.subscribed || false);
       fetchAgentDetail(agent.agent_id, agent.agent_version);
     }
   }, [isOpen, agent]);
@@ -192,42 +308,6 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
     }
   };
 
-  const handleSubscribe = async () => {
-    if (!agent) return;
-    
-    setSubscribing(true);
-    try {
-      const response = await subscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePost({
-        path: { 
-          agent_id: agent.agent_id, 
-          agent_version: agent.agent_version 
-        }
-      });
-      
-      if (response.data && response.data.status === 'success') {
-        setIsSubscribed(true);
-        toast({
-          title: 'Success',
-          description: response.data.message || 'Successfully subscribed to agent',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      }
-    } catch (error) {
-      console.error('Failed to subscribe:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to subscribe to agent',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setSubscribing(false);
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -235,6 +315,10 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
       day: 'numeric'
     });
   };
+
+  const departmentName = agentDetail?.department_name || agent?.department_name || 'Common';
+  const departmentStyle = DEPARTMENTS_STYLES[departmentName as Departments] || DEPARTMENTS_STYLES.Common;
+  const DepartmentIcon = DEPARTMENT_ICONS[departmentName] || DEPARTMENT_ICONS.Common;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
@@ -245,19 +329,26 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
             <Skeleton height="32px" width="200px" />
           ) : (
             <HStack spacing={3}>
-              <Avatar
-                size="md"
-                name={agentDetail?.name || agent?.name}
-                src={agentDetail?.icon_link || agent?.icon_link || undefined}
-                bg="blue.500"
-              />
+              <Box
+                p={3}
+                borderRadius="full"
+                bgGradient={departmentStyle.bgGradient}
+                color="white"
+              >
+                <Icon as={DepartmentIcon} boxSize={6} />
+              </Box>
               <VStack align="start" spacing={0}>
                 <Text fontSize="xl" fontWeight="bold">
                   {agentDetail?.name || agent?.name}
                 </Text>
-                <Text fontSize="sm" color="gray.600">
-                  by {agentDetail?.author_name || 'Unknown'}
-                </Text>
+                <HStack spacing={2}>
+                  <Badge colorScheme={departmentStyle.color}>
+                    {departmentStyle.name}
+                  </Badge>
+                  <Text fontSize="sm" color="gray.600">
+                    by {agentDetail?.author_name || 'Unknown'}
+                  </Text>
+                </HStack>
               </VStack>
             </HStack>
           )}
@@ -274,7 +365,6 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
             </VStack>
           ) : agentDetail ? (
             <VStack spacing={6} align="stretch">
-              {/* Basic Info */}
               <VStack align="stretch" spacing={3}>
                 <Text fontSize="md" lineHeight="1.6">
                   {agentDetail.description}
@@ -292,7 +382,6 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
                 </HStack>
               </VStack>
 
-              {/* Tags */}
               {agentDetail.tags && agentDetail.tags.length > 0 && (
                 <VStack align="stretch" spacing={2}>
                   <HStack spacing={1}>
@@ -302,7 +391,7 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
                   <Wrap spacing={2}>
                     {agentDetail.tags.map((tag, index) => (
                       <WrapItem key={index}>
-                        <Badge colorScheme="blue" variant="subtle">
+                        <Badge colorScheme={departmentStyle.color} variant="subtle">
                           {tag}
                         </Badge>
                       </WrapItem>
@@ -313,7 +402,6 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
 
               <Divider />
 
-              {/* Prompt/Instructions */}
               {agentDetail.prompt && (
                 <VStack align="stretch" spacing={2}>
                   <Text fontSize="sm" fontWeight="semibold">
@@ -333,7 +421,6 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
                 </VStack>
               )}
 
-              {/* Stats */}
               <HStack justify="space-around" p={4} bg="gray.50" borderRadius="md">
                 <VStack spacing={1}>
                   <HStack spacing={1} color="orange.500">
@@ -370,18 +457,6 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
             <Button variant="ghost" onClick={onClose}>
               Close
             </Button>
-            {agent && (
-              <Button
-                colorScheme={isSubscribed ? "gray" : "blue"}
-                variant="solid"
-                onClick={handleSubscribe}
-                isLoading={subscribing}
-                loadingText={isSubscribed ? "Unsubscribing..." : "Subscribing..."}
-                leftIcon={isSubscribed ? <Text>✓</Text> : undefined}
-              >
-                {isSubscribed ? "Subscribed" : "Subscribe"}
-              </Button>
-            )}
           </HStack>
         </ModalFooter>
       </ModalContent>
@@ -390,29 +465,35 @@ const AgentDetailModal: React.FC<AgentDetailModalProps> = ({
 };
 
 const MarketplaceView: React.FC = () => {
-  const [agents, setAgents] = useState<AgentMarketPlace[]>([]);
+  const [allAgents, setAllAgents] = useState<AgentWithDepartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAgent, setSelectedAgent] = useState<AgentMarketPlace | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<AgentWithDepartment | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<Departments | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   useEffect(() => {
     fetchAgents();
   }, []);
 
-  const fetchAgents = async (search?: string) => {
+  const fetchAgents = async () => {
     setLoading(true);
     try {
       const response = await getAvailableAgentsApiV1AgentsGet({
         query: {
-          search: search || null,
+          search: null,
           page: 1,
-          size: 20
+          size: 100
         }
       });
       
       if (response.data && response.data.agents) {
-        setAgents(response.data.agents);
+        const agentsWithDepartments = response.data.agents.map(agent => ({
+          ...agent,
+          department_name: (agent.department_name || 'Common') as Departments
+        }));
+        
+        setAllAgents(agentsWithDepartments);
       }
     } catch (error) {
       console.error('Failed to fetch agents:', error);
@@ -421,86 +502,153 @@ const MarketplaceView: React.FC = () => {
     }
   };
 
-  const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    fetchAgents(value);
-  };
-
-  const handleCardClick = (agent: AgentMarketPlace) => {
+  const handleAgentClick = (agent: AgentWithDepartment) => {
     setSelectedAgent(agent);
+    setSelectedDepartment(null); // 부서 모달을 닫음
     onOpen();
   };
 
-  const filteredAgents = agents.filter(agent =>
-    agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    agent.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const handleDepartmentClick = (department: Departments) => {
+    if (selectedDepartment === department) {
+      setSelectedDepartment(null);
+    } else {
+      setSelectedDepartment(department);
+    }
+  };
+
+  // 부서별로 에이전트 그룹화
+  const agentsByDepartment = allAgents.reduce((acc, agent) => {
+    const dept = agent.department_name;
+    if (!acc[dept]) {
+      acc[dept] = [];
+    }
+    acc[dept].push(agent);
+    return acc;
+  }, {} as Record<Departments, AgentWithDepartment[]>);
+
+  // 검색 필터링
+  const filteredAgentsByDepartment = Object.entries(agentsByDepartment).reduce((acc, [dept, agents]) => {
+    const filtered = agents.filter(agent =>
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+    if (filtered.length > 0 || searchQuery === '') {
+      acc[dept as Departments] = searchQuery === '' ? agents : filtered;
+    }
+    return acc;
+  }, {} as Record<Departments, AgentWithDepartment[]>);
+
+  // 사용 중인 부서만 추출
+  const activeDepartments = Object.keys(filteredAgentsByDepartment) as Departments[];
+
+  // 글로벌 스타일 추가 (애니메이션)
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.6;
+          transform: scale(1.05);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   return (
-    <Box p={6}>
-      {/* Header */}
-      <VStack spacing={6} align="stretch">
+    <Box p={6} minH="100vh">
+      <VStack spacing={8} align="stretch">
+        {/* Header */}
         <VStack spacing={4} align="stretch">
-          <Text fontSize="2xl" fontWeight="bold">
-            Agent Marketplace
-          </Text>
-          <Text color="gray.600">
-            Discover and subscribe to AI agents for your projects
-          </Text>
+          <HStack justify="space-between" align="start">
+            <VStack align="start" spacing={1}>
+              <Text fontSize="3xl" fontWeight="bold">
+                Agent Marketplace
+              </Text>
+              <Text color="gray.600" fontSize="md">
+                Click a department to explore available AI agents
+              </Text>
+            </VStack>
+            <Badge colorScheme="blue" variant="subtle" px={3} py={1} fontSize="sm">
+              {allAgents.length} agents • {activeDepartments.length} departments
+            </Badge>
+          </HStack>
           
           {/* Search Bar */}
-          <InputGroup maxW="500px">
+          <InputGroup maxW="400px">
             <InputLeftElement pointerEvents="none">
               <HiSearch color="gray.400" />
             </InputLeftElement>
             <Input
               placeholder="Search agents by name or tags..."
               value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              borderRadius="md"
             />
           </InputGroup>
         </VStack>
 
-        {/* Agent Grid */}
+        {/* Department Circles Grid */}
         {loading ? (
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} spacing={6}>
-            {Array.from({ length: 8 }).map((_, index) => (
-              <Card key={index} h="200px">
-                <CardBody>
-                  <VStack spacing={3} align="stretch">
-                    <HStack spacing={3}>
-                      <Skeleton width="40px" height="40px" borderRadius="full" />
-                      <VStack align="start" spacing={1} flex={1}>
-                        <Skeleton height="20px" width="60%" />
-                        <Skeleton height="16px" width="40%" />
-                      </VStack>
-                    </HStack>
-                    <SkeletonText noOfLines={2} spacing="2" />
-                    <HStack justify="space-between">
-                      <Skeleton height="16px" width="30%" />
-                      <Skeleton height="16px" width="30%" />
-                    </HStack>
-                  </VStack>
-                </CardBody>
-              </Card>
+          <SimpleGrid 
+            columns={{ base: 2, sm: 3, md: 4, lg: 5 }} 
+            spacing={{ base: 6, md: 8 }}
+            justifyItems="center"
+          >
+            {Array.from({ length: 10 }).map((_, index) => (
+              <Skeleton 
+                key={index}
+                w={{ base: "120px", md: "140px", lg: "160px" }}
+                h={{ base: "120px", md: "140px", lg: "160px" }}
+                borderRadius="full" 
+              />
             ))}
           </SimpleGrid>
-        ) : filteredAgents.length > 0 ? (
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} spacing={6}>
-            {filteredAgents.map((agent) => (
-              <AgentCard
-                key={`${agent.agent_id}-v${agent.agent_version}`}
-                agent={agent}
-                onCardClick={handleCardClick}
+        ) : activeDepartments.length > 0 ? (
+          <SimpleGrid 
+            columns={{ base: 2, sm: 3, md: 4, lg: 5 }} 
+            spacing={{ base: 6, md: 8 }}
+            justifyItems="center"
+          >
+            {activeDepartments.map((department) => (
+              <DepartmentCircle
+                key={department}
+                department={department}
+                agentCount={filteredAgentsByDepartment[department]?.length || 0}
+                agents={filteredAgentsByDepartment[department] || []}
+                onAgentClick={handleAgentClick}
+                isSelected={selectedDepartment === department}
+                onDepartmentClick={() => handleDepartmentClick(department)}
               />
             ))}
           </SimpleGrid>
         ) : (
-          <Box textAlign="center" py={12}>
-            <Text fontSize="lg" color="gray.500">
-              No agents found matching your search
-            </Text>
-          </Box>
+          <Center py={16}>
+            <VStack spacing={4}>
+              <Text fontSize="lg" color="gray.500">
+                No agents found matching your search
+              </Text>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => setSearchQuery('')}
+                colorScheme="blue"
+              >
+                Clear search
+              </Button>
+            </VStack>
+          </Center>
         )}
       </VStack>
 

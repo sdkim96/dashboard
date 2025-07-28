@@ -30,16 +30,15 @@ def get_available_agents(
     Master = tbl.Agent
     Detail = tbl.AgentDetail
     Tag = tbl.AgentTag
-    Subscribe = tbl.AgentSubscriber
 
     stmt = (
         select(
             Master.agent_id,
             Detail.version,
             Master.name,
-            Master.icon_link,
+            Detail.icon_link,
             func.array_agg(Tag.tag).label("tags"),
-            func.coalesce(Subscribe.user_id.is_not(None), False).label("subscribed")
+            Master.department_name,
         )
         .join(
             Detail,
@@ -49,22 +48,18 @@ def get_available_agents(
             Tag,
             Master.agent_id == Tag.agent_id
         )
-        .outerjoin(
-            Subscribe,
-            (Subscribe.agent_id == Master.agent_id) &
-            (Subscribe.agent_version == Detail.version) &
-            (Subscribe.user_id == user.user_id)
-        )
         .where(
-            Master.is_active.is_(True),
-            Master.is_deleted.is_(False),
+            Detail.is_active.is_(True),
+            Detail.is_deleted.is_(False),
         )
+        .order_by(Detail.created_at.desc())
         .group_by(
             Master.agent_id,
             Detail.version,
             Master.name,
-            Master.icon_link,
-            Subscribe.user_id
+            Detail.icon_link,
+            Detail.created_at,
+            Master.department_name,
         )
     )
 
@@ -75,7 +70,6 @@ def get_available_agents(
             )
         )
 
-    stmt = stmt.order_by(Master.created_at.desc()).offset(offset).limit(limit)
     lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
     try:
         results = session.execute(stmt).mappings().all()
@@ -89,7 +83,7 @@ def get_available_agents(
             name=row.name,
             icon_link=row.icon_link,
             tags=row.tags or [],
-            subscribed=row.subscribed
+            department_name=row.department_name,
         )
         for row in results
     ]
@@ -114,8 +108,6 @@ def get_detail_by_agent_id(
     Master = tbl.Agent
     Detail = tbl.AgentDetail
     Tag = tbl.AgentTag
-    Subcribe = tbl.AgentSubscriber
-    Privacy = tbl.AgentPrivacy
     User = user_tbl.User
 
     
@@ -123,14 +115,14 @@ def get_detail_by_agent_id(
         select(
             Master.agent_id,
             Detail.version.label("agent_version"),
-            User.username.label("author_name"),
+            Master.department_name,
             Master.name,
-            Master.description,
-            Master.icon_link,
-            Detail.prompt,
+            Detail.description,
             func.array_agg(Tag.tag).label("tags"),
-            Master.created_at,
-            Master.updated_at
+            Detail.icon_link,
+            Detail.created_at,
+            Detail.updated_at,
+            User.username.label("author_name"),
         )
         .join(
             Detail,
@@ -146,20 +138,20 @@ def get_detail_by_agent_id(
         )
         .where(
             Master.agent_id == agent_id,
-            Master.is_active.is_(True),
-            Master.is_deleted.is_(False),
+            Detail.is_active.is_(True),
+            Detail.is_deleted.is_(False),
             Detail.version == agent_version,
         )
         .group_by(
             Master.agent_id,
             Detail.version,
-            User.username,
+            Master.department_name,
             Master.name,
-            Master.description,
-            Master.icon_link,
-            Detail.prompt,
-            Master.created_at,
-            Master.updated_at
+            Detail.description,
+            Detail.icon_link,
+            Detail.created_at,
+            Detail.updated_at,
+            User.username,           
         )
     )
     lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
@@ -177,43 +169,6 @@ def get_detail_by_agent_id(
     except Exception as e:
         lg.logger.error(f"Error validating agent detail: {e}")
         return mdl.AgentDetail.failed(), e
-
-
-def subscribe_agent(
-    session: Session,
-    request_id: str,
-    user: mdl.User,
-    agent_id: str,
-    agent_version: int
-) -> Tuple[bool, Exception | None]:
-    """ Subscribes a user to an agent.
-    
-    Args:
-        session (Session): SQLAlchemy session object.
-        request_id (str): Unique request ID for tracking.
-        user (mdl.User): Current user's profile.
-        agent_id (str): Unique identifier of the agent to subscribe to.
-        agent_version (int): Version of the agent to subscribe to.
-    
-    Returns:
-        out (Tuple[bool, Exception | None]): Returns True if successful, otherwise False and the exception
-    """
-    lg.logger.info(f"Request ID: {request_id}, User: {user.username}, Agent ID: {agent_id}, Version: {agent_version}")
-
-    subscription = tbl.AgentSubscriber(
-        user_id=user.user_id,
-        agent_id=agent_id,
-        agent_version=agent_version,
-        created_at=dt.datetime.now(),
-    )
-    try:
-        session.add(subscription)
-        session.commit()
-        return True, None
-    except Exception as e:
-        lg.logger.error(f"Error subscribing to agent: {e}")
-        session.rollback()
-        return False, e
 
 
 def publish_agent(

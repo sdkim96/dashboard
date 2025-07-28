@@ -200,7 +200,7 @@ const ChatView: React.FC = () => {
     setMessagesLoading(true);
     try {
       const response = await getConversationApiV1ConversationsConversationIdGet({
-        path: { conversation_id: conversationId }
+        path: { conversation_id: conversationId },
       });
       
       if (response.data && response.data.messages) {

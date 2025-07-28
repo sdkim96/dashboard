@@ -16,6 +16,8 @@ def get_conversations(
     session: Session,
     user_profile: mdl.User,
     request_id: str,
+    *,
+    conversation_type: t.ConversationTypeLiteral = 'chat'
 ) -> Tuple[List[mdl.ConversationMaster], Exception | None]:
     
     Conversation = tbl.Conversation
@@ -31,6 +33,9 @@ def get_conversations(
         )
         .where(
             Conversation.user_id == user_profile.user_id
+        )
+        .where(
+            Conversation.conversation_type == conversation_type
         )
         .order_by(Conversation.updated_at.desc())
     )
@@ -171,6 +176,7 @@ def get_messages(
                 role=msg.role,
                 agent_id=msg.agent_id,
                 llm=llm,
+                tool_id=None,
                 parent_message_id=msg.parent_message_id,
                 updated_at=msg.message_updated_at,
                 created_at=msg.message_created_at

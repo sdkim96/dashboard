@@ -32,7 +32,7 @@ class Agent(BaseModel):
         description="Version of the agent.",
         examples=[1]
     )
-    department_name: str = Field(
+    department_name: t.DepartmentsLiteral = Field(
         ...,
         description="Department to which the agent belongs.",
         examples=["Engineering", "Marketing"]
@@ -219,7 +219,7 @@ class AgentDetail(Agent):
         return cls(
             agent_id="",
             agent_version=0,
-            department_name="",
+            department_name="Common",
             name="",
             tags=[],
             icon_link=None,
@@ -320,12 +320,23 @@ class AgentMarketPlace(BaseModel):
         None,
         description="Link to the user's icon or avatar, if available.",
         examples=["https://example.com/icon.png"]
+    )    
+    department_name: t.DepartmentsLiteral = Field(
+        ...,
+        description="Department to which the agent belongs.",
+        examples=["BusinessSupport", "ProductDevelopment", "InternationalSales"]
     )
-    subscribed: bool = Field(
-        default=False,
-        description="Indicates whether the user is subscribed to this agent.",
-        examples=[True, False]
-    )
+
+    @classmethod
+    def mock(cls) -> "AgentMarketPlace":
+        return cls(
+            agent_id="agent-123",
+            agent_version=1,
+            name="Example Agent",
+            tags=["cool", "good"],
+            icon_link="https://example.com/icon.png",
+            department_name="BusinessSupport"
+        )
 
 class AgentPublish(BaseModel):
 
@@ -389,10 +400,6 @@ class AgentPublish(BaseModel):
             ]
         )
     
-
-
-
-
 
 class AgentSpec(BaseModel):
     """

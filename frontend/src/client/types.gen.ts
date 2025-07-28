@@ -18,7 +18,7 @@ export type Agent = {
      * Department Name
      * Department to which the agent belongs.
      */
-    department_name: string;
+    department_name: 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales';
     /**
      * Name
      * Username of the user.
@@ -69,7 +69,7 @@ export type AgentDetail = {
      * Department Name
      * Department to which the agent belongs.
      */
-    department_name: string;
+    department_name: 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales';
     /**
      * Name
      * Username of the user.
@@ -147,10 +147,10 @@ export type AgentMarketPlace = {
      */
     icon_link?: string | null;
     /**
-     * Subscribed
-     * Indicates whether the user is subscribed to this agent.
+     * Department Name
+     * Department to which the agent belongs.
      */
-    subscribed?: boolean;
+    department_name: 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales';
 };
 
 /**
@@ -510,11 +510,6 @@ export type GetMeResponse = {
      * User information model containing details about the current user.
      */
     user: User;
-    /**
-     * Agents
-     * List of agent IDs that the user is subscribed to.
-     */
-    agents?: Array<Agent>;
     /**
      * Llms
      * List of model IDs that the user has access to.
@@ -923,28 +918,6 @@ export type PostRescommendationRequest = {
      * Details of the recommendation to be created.
      */
     work_details: string;
-};
-
-/**
- * PostSubscribeAgentResponse
- * POST /api/v1/agent/agent_id/subscribe Response model
- */
-export type PostSubscribeAgentResponse = {
-    /**
-     * Status
-     * Status of the response, e.g., 'success' or 'error'.
-     */
-    status?: 'success' | 'error';
-    /**
-     * Message
-     * Message providing additional information about the response.
-     */
-    message?: string;
-    /**
-     * Request Id
-     * Unique identifier for the request, used for tracking and debugging.
-     */
-    request_id: string;
 };
 
 /**
@@ -1401,12 +1374,7 @@ export type GetConversationApiV1ConversationsConversationIdGetData = {
          */
         conversation_id: string;
     };
-    query: {
-        /**
-         * Recommendation Id
-         */
-        recommendation_id: string | null;
-    };
+    query?: never;
     url: '/api/v1/conversations/{conversation_id}';
 };
 
@@ -1524,40 +1492,6 @@ export type GetAgentApiV1AgentsAgentIdVersionAgentVersionGetResponses = {
 };
 
 export type GetAgentApiV1AgentsAgentIdVersionAgentVersionGetResponse = GetAgentApiV1AgentsAgentIdVersionAgentVersionGetResponses[keyof GetAgentApiV1AgentsAgentIdVersionAgentVersionGetResponses];
-
-export type SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostData = {
-    body?: never;
-    path: {
-        /**
-         * Agent Id
-         */
-        agent_id: string;
-        /**
-         * Agent Version
-         */
-        agent_version: number;
-    };
-    query?: never;
-    url: '/api/v1/agents/{agent_id}/version/{agent_version}/subscribe';
-};
-
-export type SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostError = SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostErrors[keyof SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostErrors];
-
-export type SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: PostSubscribeAgentResponse;
-};
-
-export type SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostResponse = SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostResponses[keyof SubscribeAgentApiV1AgentsAgentIdVersionAgentVersionSubscribePostResponses];
 
 export type PublishAgentApiV1AgentsPublishPostData = {
     body: PostPublishAgentRequest;

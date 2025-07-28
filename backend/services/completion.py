@@ -1,8 +1,10 @@
 import asyncio
 import time
+import os
 import uuid
 from typing import cast
 
+from openai import AsyncOpenAI
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -13,6 +15,8 @@ import backend.utils.logger as lg
 from backend.utils.history import get_history, set_history
 from backend.utils.agent_spec import get_agent_spec
 from backend.utils.streamer import chunk
+
+from agents.main import AsyncSimpleAgent
 
 
 async def chat_completion(
@@ -51,25 +55,6 @@ async def chat_completion(
     lg.logger.info(
         f"History for user {user_profile.user_id} in conversation {body.conversation_id} retrieved successfully. Execution time: {time.time() - start:.2f} seconds."
     )
-    agent_spec, err = get_agent_spec(
-        session=session,
-        agent_id=body.agent_id,
-        agent_version=body.agent_version,
-        request_id=request_id,
-    )
-    
-    lg.logger.info(
-        f"Agent spec for agent {body.agent_id} version {body.agent_version} retrieved successfully. Execution time: {time.time() - start:.2f} seconds."
-    )
-    if err:
-        lg.logger.error(
-            f"Error getting agent spec for agent {body.agent_id} version {body.agent_version}: {err}"
-        )
-        yield await chunk(
-            "error", 
-            {"message": "❌ Server sent error... Retry later."},
-        )
-        return
     
     user_message_id = str(uuid.uuid4())
     assaistant_message_id = str(uuid.uuid4())
@@ -83,16 +68,15 @@ async def chat_completion(
     )
     new_messages.append(user)
     await history.update_context(user)
-    
-    simple_agent = SimpleAgent(
-        agent_id=body.agent_id,
-        agent_version=body.agent_version,
-        issuer=body.llm.issuer,
-        deployment_id=body.llm.deployment_id,
+
+    simple_agent = AsyncSimpleAgent(
+        provider=AsyncOpenAI(
+            api_key=os.getenv("OPENAI_API_KEY")
+        )
     )
     
     lg.logger.info(
-        f"Starting streaming for agent {body.agent_id} version {body.agent_version} with user message ID {user_message_id}. Execution time: {time.time() - start:.2f} seconds. "
+        f"Starting streaming user message ID {user_message_id}. Execution time: {time.time() - start:.2f} seconds. "
     )
     yield await chunk(
         event="status", 
@@ -100,71 +84,50 @@ async def chat_completion(
     )
     await asyncio.sleep(0.1)
     
-    parts = ""
-    async for c in simple_agent.astream(
-        messages=history.marshal_to_messagelike(
-            user_message=user
-        ),
-        output_schema=[
-            s.model_dump(mode="json") 
-            for s in agent_spec.output_schema
-        ] if agent_spec.output_schema else None,
-    ):
-        if agent_spec.output_schema:
-            c = cast(BaseModel, c)
-            part = c.model_dump_json()
-            for p in part.split("\n"):
-                print(p)
-                if p.strip():
-                    yield await chunk(
-                        event="data", 
-                        data={"message": f"{p}"},
-                    )
-                    await asyncio.sleep(0.02)
-                    parts += p + "\n"
-            
-        else:
-            async for part in c:
-                match part.get("event"):
-                    case "content.delta":
-                        p = part.get("data", "")
-                        parts += p
-                        print(p)
-                        yield await chunk(
-                            event="data", 
-                            data={"message": f"{p}"},
-                        )
-                        await asyncio.sleep(0.02)
-                    case "content.done":
-                        p = part.get("data", "")
-                        yield await chunk(
-                            event="done",
-                            data={"message": f"{p}"},
-                        )
-                        await asyncio.sleep(0.02)
-                
-
-    # yield await chunk(
-    #     event="done", 
-    #     data={"message": parts},
-    # )
-    lg.logger.info(
-        f"Streaming completed for agent {body.agent_id} version {body.agent_version} with user message ID {user_message_id}. Total execution time: {time.time() - start:.2f} seconds."
+    messages = [{"role": "system", "content": body.messages[0].content.parts[0]}]
+    messages.extend(history.marshal_to_messagelike(user))
+    
+    gen = simple_agent.astream(
+        messages=messages,
+        deployment_id=body.llm.deployment_id
     )
+    
+    parts = ""
+    async for response in gen:
+        if response['type'] == 'delta':
+            yield await chunk(
+                event="data",
+                data={"message": response['content']}
+            )
+            parts += response['content']
+        elif response['type'] == 'done':
+            yield await chunk(
+                event="done",
+                data={"message": response['content']}
+            )
+        elif response['type'] == 'error':
+            yield await chunk(
+                event="error",
+                data={"message": response['content']}
+            )
+            return
+
+        await asyncio.sleep(0.02)
+    
     assistant = mdl.Message.assistant_message(
         message_id=assaistant_message_id,
         parent_message_id=user_message_id,
-        agent_id=body.agent_id,
+        agent_id=None,
         content=mdl.Content(type='text', parts=[parts]),
         llm_deployment_id=body.llm.deployment_id
     )
     new_messages.append(assistant)
-    
     err = set_history(
         session=session,
         history=history,
         new_messages=new_messages,
         request_id=request_id,   
+        conversation_type='chat'
     )
     if err:
         lg.logger.error(
