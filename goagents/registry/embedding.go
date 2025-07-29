@@ -10,7 +10,7 @@ import (
 
 type EmbeddingStoreI interface {
 	Embed(text string) ([]float64, error)
-	EmbedBatch(texts []string) ([][]float64, error)
+	EmbedBatch(texts []string) map[string][]float64
 }
 
 type OpenAIEmbeddingStore struct {
