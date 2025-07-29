@@ -28,7 +28,6 @@ func TestRegister(t *testing.T) {
 				Name:        "Test Agent " + strconv.Itoa(i),
 				Description: "This is a test agent " + strconv.Itoa(i),
 				Tags:        []string{"test", "agent"},
-				Vector:      []float64{0.1 * float64(i), 0.2 * float64(i), 0.3 * float64(i)},
 			}
 			rg.Register([]*registry.AgentCard{agent})
 			fmt.Printf("Registered agent: %s\n", agent.ID)

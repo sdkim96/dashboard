@@ -28,9 +28,8 @@ type AgentRegistryI interface {
 }
 
 type ESAgentRegistry struct {
-	Client         *es.Client
-	Indexname      string
-	EmbeddingStore *EmbeddingStoreI
+	Client    *es.Client
+	Indexname string
 }
 
 func NewESAgentRegistry(client *es.Client, indexname string) *ESAgentRegistry {
