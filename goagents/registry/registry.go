@@ -14,14 +14,6 @@ type AgentCard struct {
 	Tags        []string `json:"tags"`
 }
 
-type AgentCardCreate struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Tags        []string  `json:"tags"`
-	Vector      []float64 `json:"vector"`
-}
-
 type AgentRegistryI interface {
 	Register(agent []*AgentCard) []string
 	AreAgentsExists(ids []string) map[string]bool
