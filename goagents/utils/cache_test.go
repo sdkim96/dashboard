@@ -1,15 +1,15 @@
-package registry_test
+package utils_test
 
 import (
 	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/sdkim96/dashboard/registry"
+	"github.com/sdkim96/dashboard/utils"
 )
 
 func TestSave(t *testing.T) {
-	cache := registry.NewVectorCache()
+	cache := utils.NewLocalVectorCache()
 	wg := sync.WaitGroup{}
 	wg.Add(10)
 

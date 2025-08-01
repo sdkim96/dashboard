@@ -1,9 +1,11 @@
-package registry
+package utils
 
-import "sync"
+import (
+	"sync"
+)
 
 type EmbeddingCacheI interface {
-	Save(id string, vector []float64)
+	Save(id string, vector []float64) error
 	Get(id string) ([]float64, bool)
 }
 
@@ -17,15 +19,20 @@ func NewVectorCache() *LocalEmbeddingCache {
 		Cache: make(map[string][]float64),
 	}
 }
-func (cache *LocalEmbeddingCache) Save(id string, vector []float64) {
+
+func (cache *LocalEmbeddingCache) Save(id string, vector []float64) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	cache.Cache[id] = vector
+	return nil
 }
 
 func (cache *LocalEmbeddingCache) Get(id string) ([]float64, bool) {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 	vector, exists := cache.Cache[id]
-	return vector, exists
+	if !exists {
+		return nil, false
+	}
+	return vector, true
 }

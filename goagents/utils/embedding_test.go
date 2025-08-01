@@ -1,4 +1,4 @@
-package registry_test
+package utils_test
 
 import (
 	"fmt"
@@ -8,13 +8,13 @@ import (
 
 	openai "github.com/openai/openai-go"
 	opt "github.com/openai/openai-go/option"
-	"github.com/sdkim96/dashboard/registry"
+	utl "github.com/sdkim96/dashboard/utils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEmbed(t *testing.T) {
 	Client := openai.NewClient(opt.WithAPIKey(os.Getenv("SDKIM_OPENAI_API_KEY")))
-	store := registry.NewOpenAIEmbeddingStore(&Client)
+	store := utl.NewOpenAIEmbeddingStore(&Client)
 	texts := make([]string, 0, 2)
 	for i := 0; i < 10; i++ {
 		text := "This is a test text for embedding " + strconv.Itoa(i)

@@ -11,6 +11,7 @@ import (
 	es "github.com/elastic/go-elasticsearch/v8"
 	"github.com/openai/openai-go"
 	opt "github.com/openai/openai-go/option"
+	utl "github.com/sdkim96/dashboard/utils"
 
 	"github.com/joho/godotenv"
 )
@@ -37,10 +38,11 @@ func TestInit(t *testing.T) {
 		t.Fatalf("Error creating Elasticsearch client: %s", err)
 	}
 
-	embeddingStore := registry.NewOpenAIEmbeddingStore(&OpenAIClient)
-	cache := registry.NewVectorCache()
-	rg := registry.NewESAgentRegistry(ESClient, "agents")
+	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
+	cache := utl.NewVectorCache()
+	rg := registry.NewESRegistry(ESClient, "agents")
 	ai := registry.NewAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ctx := context.Background()
 
 	// Initialize the search engine
 	searchEngine := registry.Init(
@@ -49,6 +51,27 @@ func TestInit(t *testing.T) {
 		cache,
 		ai,
 	)
+	errChan := make(chan error, 1)
+
+	go func() {
+		errChan <- searchEngine.RegisterAgent(
+			ctx,
+			"agent-123",
+			1,
+			"This is a test agent description.",
+			registry.WithAgentName("Test Agent"),
+			registry.WithAgentDepartmentName("Engineering"),
+			registry.WithAgentPrompt("What can you do?"),
+			registry.WithAgentTags([]string{"test", "agent"}),
+		)
+	}()
+
+	go func() {
+		err = <-errChan
+	}()
+	if err != nil {
+		t.Fatalf("Error registering agent: %s", err)
+	}
 	searchEngine.Search(
 		context.Background(),
 		"test query",

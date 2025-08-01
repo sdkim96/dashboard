@@ -1,14 +1,18 @@
-details = """
+from pydantic import BaseModel, Field
+
+class Human(BaseModel):
+    name: str = Field(..., description="The name of the human")
+    age: int = Field(..., description="The age of the human")
 
 
-"""
-
-body = {
-  "work_details": details
+aa = {
+    "name": "Alice",
+    "age": 30,
 }
-import requests
-resp = requests.post(
-    "http://localhost:8000/api/v1/recommendations",
-    json=body
-)
-print(resp.json())
+
+
+if __name__ == "__main__":
+    print(aa['nickname'])
+
+
+    

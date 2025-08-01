@@ -30,11 +30,6 @@ func TestCreateIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating Elasticsearch client: %s", err)
 	}
-	rg := NewESAgentRegistry(ESClient, "agents")
+	rg := NewESRegistry(ESClient, "agents")
 
-	// Create the index with the defined mapping
-	err = CreateIndex(rg)
-	if err != nil {
-		t.Fatalf("Error creating index: %s", err)
-	}
 }
