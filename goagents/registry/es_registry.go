@@ -13,6 +13,55 @@ import (
 )
 
 const IndexDefinition = `{
+	"settings": {
+		"analysis": {
+			"analyzer": {
+				"korean_analyzer": {
+					"type": "custom",
+					"tokenizer": "nori_tokenizer",
+					"filter": [
+						"nori_readingform",
+						"lowercase",
+						"nori_stop_filter"
+					]
+				},
+				"korean_search_analyzer": {
+					"type": "custom",
+					"tokenizer": "nori_tokenizer",
+					"filter": [
+						"nori_readingform",
+						"lowercase",
+						"nori_stop_filter"
+					]
+				}
+			},
+			"tokenizer": {
+				"nori_tokenizer": {
+					"type": "nori_tokenizer",
+					"decompound_mode": "mixed"
+				}
+			},
+			"filter": {
+				"nori_stop_filter": {
+					"type": "nori_part_of_speech",
+					"stoptags": [
+						"SP",
+						"SSC",
+						"SSO",
+						"SC",
+						"SE",
+						"XPN",
+						"XSA",
+						"XSN",
+						"XSV",
+						"UNA",
+						"NA",
+						"VSV"
+					]
+				}
+			}
+		}
+	},
 	"mappings": {
 		"properties": {
 			"id": {"type": "keyword"},
@@ -20,26 +69,52 @@ const IndexDefinition = `{
 			"agent_version": {"type": "integer"},
 			"name": {
 				"type": "text",
+				"analyzer": "korean_analyzer",
+				"search_analyzer": "korean_search_analyzer",
 				"fields": {
 					"keyword": {"type": "keyword"}
 				}
 			},
-			"department_name": {"type": "keyword"},
-			"description": {"type": "text"},
+			"department_name": {
+				"type": "keyword",
+				"fields": {
+					"korean": {
+						"type": "text",
+						"analyzer": "korean_analyzer"
+					}
+				}
+			},
+			"description": {
+				"type": "text",
+				"analyzer": "korean_analyzer",
+				"search_analyzer": "korean_search_analyzer"
+			},
 			"description_vector": {
 				"type": "dense_vector",
 				"dims": 1536,
 				"index": true,
 				"similarity": "cosine"
 			},
-			"prompt": {"type": "text"},
+			"prompt": {
+				"type": "text",
+				"analyzer": "korean_analyzer",
+				"search_analyzer": "korean_search_analyzer"
+			},
 			"prompt_vector": {
 				"type": "dense_vector",
 				"dims": 1536,
 				"index": true,
 				"similarity": "cosine"
 			},
-			"tags": {"type": "keyword"},
+			"tags": {
+				"type": "keyword",
+				"fields": {
+					"korean": {
+						"type": "text",
+						"analyzer": "korean_analyzer"
+					}
+				}
+			},
 			"created_at": {"type": "date"},
 			"updated_at": {"type": "date"}
 		}
@@ -66,6 +141,30 @@ type AgentCardCreate struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
+// **Private function**
+//
+// isIndexExists checks if the index exists in Elasticsearch.
+func (s *ESRegistry) isIndexExists(ctx context.Context) (bool, error) {
+	resp, err := esapi.IndicesExistsRequest{
+		Index: []string{s.Indexname},
+	}.Do(ctx, s.Client)
+	if err != nil {
+		return false, fmt.Errorf("error checking if index exists: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return false, nil
+	}
+	if resp.IsError() {
+		return false, fmt.Errorf("error checking if index exists: %s", resp.String())
+	}
+	if resp.StatusCode == 200 {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+}
+
 func NewESRegistry(client *es.Client, indexname string) *ESRegistry {
 	return &ESRegistry{
 		Client:    client,
@@ -73,28 +172,30 @@ func NewESRegistry(client *es.Client, indexname string) *ESRegistry {
 	}
 }
 
-func (rg *ESRegistry) CreateIndex(
+func (rg *ESRegistry) CreateIndexIfNotExists(
 	ctx context.Context,
 	definition string,
 ) error {
+
+	exists, err := rg.isIndexExists(ctx)
+	if err != nil {
+		return fmt.Errorf("error checking if index exists: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
 	resp, err := esapi.IndicesCreateRequest{
 		Index: rg.Indexname,
 		Body:  strings.NewReader(definition),
 	}.Do(ctx, rg.Client)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating index: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.IsError() {
 		return fmt.Errorf("error creating index: %s", resp.String())
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-	if resp.StatusCode == 200 {
-		fmt.Println("Index created successfully")
-	}
-
 	return nil
 }
 

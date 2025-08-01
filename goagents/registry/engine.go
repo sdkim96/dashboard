@@ -2,37 +2,50 @@ package registry
 
 import (
 	"context"
+	"strconv"
 	"time"
 
-	openai "github.com/openai/openai-go"
 	utl "github.com/sdkim96/dashboard/utils"
+	providers "github.com/sdkim96/dashboard/utils/providers"
 )
 
-type AIClient struct {
-	Client       *openai.Client
-	SystemPrompt string
-}
-
-func NewAIClient(client *openai.Client, SystemPrompt string) *AIClient {
-	return &AIClient{
-		Client:       client,
-		SystemPrompt: SystemPrompt,
-	}
-}
+type RegisterAgentOption func(*AgentCardCreate) *AgentCardCreate
+type HybridSearchAgentOption func(*AgentCardHybridSearch) *AgentCardHybridSearch
 
 type SearchEngine struct {
 	Registry  *AgentRegistryI
 	Embedding *utl.EmbeddingStoreI
 	Cache     *utl.EmbeddingCacheI
-	AIClient  *AIClient
+	AIClient  *providers.OpenAIClient
+}
+type Boost struct {
+	Description float64 `json:"description"`
+	Prompt      float64 `json:"prompt"`
+	Tags        float64 `json:"tags"`
+}
+type AgentCardHybridSearch struct {
+	QueryToDescription string   `json:"query"`
+	QueryToPrompt      string   `json:"prompt"`
+	Tags               []string `json:"tags"`
+	TopK               int      `json:"top_k"`
+	Boost              Boost    `json:"boost"`
 }
 
 func Init(
 	registry AgentRegistryI,
 	embedding utl.EmbeddingStoreI,
 	cache utl.EmbeddingCacheI,
-	aiClient *AIClient,
+	aiClient *providers.OpenAIClient,
 ) *SearchEngine {
+
+	err := registry.CreateIndexIfNotExists(
+		context.Background(),
+		IndexDefinition,
+	)
+	if err != nil {
+		return nil
+	}
+
 	return &SearchEngine{
 		Registry:  &registry,
 		Embedding: &embedding,
@@ -46,11 +59,18 @@ func (s *SearchEngine) RegisterAgent(
 	agentID string,
 	agentVersion int,
 	description string,
-	opt ...func(*AgentCardCreate) *AgentCardCreate,
+	opt ...RegisterAgentOption,
 ) error {
 
-	ID := agentID + "-" + string(agentVersion)
-	embedTarget := make([]string, 0, 2)
+	var (
+		ID              string
+		embedTargets    []string
+		openAIVectorMap map[string][]float64
+	)
+
+	ID = agentID + "-" + strconv.Itoa(agentVersion)
+	embedTargets = make([]string, 0, 2)
+	openAIEmbeddingStore := *(s.Embedding)
 
 	agentCard := &AgentCardCreate{
 		ID:           ID,
@@ -63,19 +83,18 @@ func (s *SearchEngine) RegisterAgent(
 		o(agentCard)
 	}
 
-	embedding := *(s.Embedding)
-	embedTarget = append(embedTarget, description)
-
+	embedTargets = append(embedTargets, description)
 	if agentCard.Prompt != "" {
-		embedTarget = append(embedTarget, agentCard.Prompt)
+		embedTargets = append(embedTargets, agentCard.Prompt)
 	}
-	embedded := embedding.EmbedBatch(embedTarget)
 
-	descriptionEmbedding := embedded[agentCard.Description]
-	promptEmbedding := embedded[agentCard.Prompt]
+	openAIVectorMap = openAIEmbeddingStore.EmbedBatch(embedTargets)
 
-	agentCard.DescriptionVector = descriptionEmbedding
-	agentCard.PromptVector = promptEmbedding
+	descriptionVector := openAIVectorMap[agentCard.Description]
+	promptVector := openAIVectorMap[agentCard.Prompt]
+
+	agentCard.DescriptionVector = descriptionVector
+	agentCard.PromptVector = promptVector
 
 	err := (*s.Registry).InsertAgentCard(ctx, agentCard)
 	if err != nil {
@@ -85,25 +104,25 @@ func (s *SearchEngine) RegisterAgent(
 	return nil
 }
 
-func WithAgentName(name string) func(*AgentCardCreate) *AgentCardCreate {
+func WithAgentName(name string) RegisterAgentOption {
 	return func(card *AgentCardCreate) *AgentCardCreate {
 		card.Name = name
 		return card
 	}
 }
-func WithAgentTags(tags []string) func(*AgentCardCreate) *AgentCardCreate {
+func WithAgentTags(tags []string) RegisterAgentOption {
 	return func(card *AgentCardCreate) *AgentCardCreate {
 		card.Tags = tags
 		return card
 	}
 }
-func WithAgentDepartmentName(departmentName string) func(*AgentCardCreate) *AgentCardCreate {
+func WithAgentDepartmentName(departmentName string) RegisterAgentOption {
 	return func(card *AgentCardCreate) *AgentCardCreate {
 		card.DepartmentName = departmentName
 		return card
 	}
 }
-func WithAgentPrompt(prompt string) func(*AgentCardCreate) *AgentCardCreate {
+func WithAgentPrompt(prompt string) RegisterAgentOption {
 	return func(card *AgentCardCreate) *AgentCardCreate {
 		card.Prompt = prompt
 		return card

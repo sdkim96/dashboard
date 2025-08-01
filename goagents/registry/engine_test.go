@@ -12,6 +12,7 @@ import (
 	"github.com/openai/openai-go"
 	opt "github.com/openai/openai-go/option"
 	utl "github.com/sdkim96/dashboard/utils"
+	providers "github.com/sdkim96/dashboard/utils/providers"
 
 	"github.com/joho/godotenv"
 )
@@ -41,7 +42,7 @@ func TestInit(t *testing.T) {
 	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
 	cache := utl.NewVectorCache()
 	rg := registry.NewESRegistry(ESClient, "agents")
-	ai := registry.NewAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ai := providers.NewOpenAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
 	ctx := context.Background()
 
 	// Initialize the search engine

@@ -12,7 +12,7 @@ type AgentCard struct {
 }
 
 type AgentRegistryI interface {
-	CreateIndex(ctx context.Context, definition string) error
+	CreateIndexIfNotExists(ctx context.Context, definition string) error
 	InsertAgentCard(ctx context.Context, card *AgentCardCreate) error
 	DeleteIndex(ctx context.Context) error
 	DeleteAgentCard(ctx context.Context, id string) error
