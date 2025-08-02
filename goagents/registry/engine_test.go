@@ -55,6 +55,7 @@ func TestInit(t *testing.T) {
 	errChan := make(chan error, 1)
 
 	go func() {
+		defer close(errChan)
 		errChan <- searchEngine.RegisterAgent(
 			ctx,
 			"agent-123",
@@ -82,4 +83,61 @@ func TestInit(t *testing.T) {
 	if searchEngine == nil {
 		t.Error("Expected search engine to be initialized, but it was nil")
 	}
+}
+
+const TestIndexName = "test_agents"
+
+func loadEnv() error {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	projectDir := filepath.Join(currentDir, "..", "..")
+	return godotenv.Load(projectDir + "/.env")
+}
+
+func TestBatch(t *testing.T) {
+	err := loadEnv()
+	if err != nil {
+		t.Fatalf("Error loading .env file: %s", err)
+	}
+
+	OpenAIClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	ESClient, err := es.NewClient(
+		es.Config{
+			Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
+			APIKey:    os.Getenv("ELASTICSEARCH_API_KEY"),
+		},
+	)
+	if err != nil {
+		t.Fatalf("Error creating Elasticsearch client: %s", err)
+	}
+	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
+	cache := utl.NewVectorCache()
+	rg := registry.NewESRegistry(ESClient, "agents")
+	ai := providers.NewOpenAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ctx := context.Background()
+
+	// Initialize the search engine
+	engine := registry.Init(
+		rg,
+		embeddingStore,
+		cache,
+		ai,
+	)
+
+	go func() {
+
+	}()
+	engine.RegisterAgent(
+		ctx,
+		"agent-123",
+		1,
+		"This is a test agent description.",
+		registry.WithAgentName("Test Agent"),
+		registry.WithAgentDepartmentName("Engineering"),
+		registry.WithAgentPrompt("What can you do?"),
+		registry.WithAgentTags([]string{"test", "agent"}),
+	)
+
 }

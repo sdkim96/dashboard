@@ -1,15 +1,13 @@
-package utils_test
+package utils
 
 import (
 	"fmt"
 	"sync"
 	"testing"
-
-	"github.com/sdkim96/dashboard/utils"
 )
 
 func TestSave(t *testing.T) {
-	cache := utils.NewLocalVectorCache()
+	cache := NewVectorCache()
 	wg := sync.WaitGroup{}
 	wg.Add(10)
 

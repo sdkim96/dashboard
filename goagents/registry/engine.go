@@ -5,6 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/invopop/jsonschema"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/shared"
+	"github.com/openai/openai-go/shared/constant"
 	utl "github.com/sdkim96/dashboard/utils"
 	providers "github.com/sdkim96/dashboard/utils/providers"
 )
@@ -76,6 +80,7 @@ func (s *SearchEngine) RegisterAgent(
 		ID:           ID,
 		AgentID:      agentID,
 		AgentVersion: agentVersion,
+		Description:  description,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -129,11 +134,63 @@ func WithAgentPrompt(prompt string) RegisterAgentOption {
 	}
 }
 
+func GenerateSchema[T any]() interface{} {
+	var v T
+	schema := jsonschema.Reflect(v)
+	return schema
+}
+
 func (s *SearchEngine) Search(
 	ctx context.Context,
-	query string,
-	topK int,
+	queryToDescription string,
+	opts ...HybridSearchAgentOption,
 ) ([]*AgentCard, error) {
 
+	agentCardHybridSearch := &AgentCardHybridSearch{
+		QueryToDescription: queryToDescription,
+	}
+	for _, o := range opts {
+		o(agentCardHybridSearch)
+	}
+
+	params := openai.ChatCompletionNewParams{
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.UserMessage(agentCardHybridSearch.QueryToDescription),
+		},
+		Seed:  openai.Int(0),
+		Model: openai.ChatModelGPT4oMini,
+		ResponseFormat: &shared.ResponseFormatJSONSchemaParam{
+			JSONSchema: GenerateSchema[AgentCardHybridSearch]().(*shared.ResponseFormatJSONSchemaJSONSchemaParam),
+			Type:       constant.JSONSchema.Default(),
+		},
+	}
+
+	completion, err := s.AIClient.Client.Chat.Completions.New(ctx, params)
+
 	return nil, nil
+}
+
+func WithQueryToPrompt(prompt string) HybridSearchAgentOption {
+	return func(card *AgentCardHybridSearch) *AgentCardHybridSearch {
+		card.QueryToPrompt = prompt
+		return card
+	}
+}
+func WithTags(tags []string) HybridSearchAgentOption {
+	return func(card *AgentCardHybridSearch) *AgentCardHybridSearch {
+		card.Tags = tags
+		return card
+	}
+}
+func WithBoost(boost Boost) HybridSearchAgentOption {
+	return func(card *AgentCardHybridSearch) *AgentCardHybridSearch {
+		card.Boost = boost
+		return card
+	}
+}
+func WithTopK(topK int) HybridSearchAgentOption {
+	return func(card *AgentCardHybridSearch) *AgentCardHybridSearch {
+		card.TopK = topK
+		return card
+	}
 }
