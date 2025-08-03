@@ -17,4 +17,5 @@ type AgentRegistryI interface {
 	DeleteIndex(ctx context.Context) error
 	DeleteAgentCard(ctx context.Context, id string) error
 	GetAgentCard(ctx context.Context, id string) (*AgentCard, error)
+	Search(ctx context.Context, search *AgentCardHybridSearch, descriptionVector []float64, promptVector []float64) ([]*AgentCard, error)
 }

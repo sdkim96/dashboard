@@ -6,9 +6,6 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/shared"
-	"github.com/openai/openai-go/shared/constant"
 	utl "github.com/sdkim96/dashboard/utils"
 	providers "github.com/sdkim96/dashboard/utils/providers"
 )
@@ -135,9 +132,11 @@ func WithAgentPrompt(prompt string) RegisterAgentOption {
 }
 
 func GenerateSchema[T any]() interface{} {
-	var v T
-	schema := jsonschema.Reflect(v)
-	return schema
+	reflector := jsonschema.Reflector{
+		AllowAdditionalProperties: false,
+		DoNotReference:            true,
+	}
+	return reflector.Reflect((*T)(nil))
 }
 
 func (s *SearchEngine) Search(
@@ -146,6 +145,11 @@ func (s *SearchEngine) Search(
 	opts ...HybridSearchAgentOption,
 ) ([]*AgentCard, error) {
 
+	var (
+		embedTargets    []string
+		openAIVectorMap map[string][]float64
+	)
+
 	agentCardHybridSearch := &AgentCardHybridSearch{
 		QueryToDescription: queryToDescription,
 	}
@@ -153,19 +157,25 @@ func (s *SearchEngine) Search(
 		o(agentCardHybridSearch)
 	}
 
-	params := openai.ChatCompletionNewParams{
-		Messages: []openai.ChatCompletionMessageParamUnion{
-			openai.UserMessage(agentCardHybridSearch.QueryToDescription),
-		},
-		Seed:  openai.Int(0),
-		Model: openai.ChatModelGPT4oMini,
-		ResponseFormat: &shared.ResponseFormatJSONSchemaParam{
-			JSONSchema: GenerateSchema[AgentCardHybridSearch]().(*shared.ResponseFormatJSONSchemaJSONSchemaParam),
-			Type:       constant.JSONSchema.Default(),
-		},
-	}
+	embedTargets = make([]string, 0, 2)
+	openAIEmbeddingStore := *(s.Embedding)
 
-	completion, err := s.AIClient.Client.Chat.Completions.New(ctx, params)
+	embedTargets = append(embedTargets, agentCardHybridSearch.QueryToDescription)
+	if agentCardHybridSearch.QueryToPrompt != "" {
+		embedTargets = append(embedTargets, agentCardHybridSearch.QueryToPrompt)
+	}
+	openAIVectorMap = openAIEmbeddingStore.EmbedBatch(embedTargets)
+
+	descriptionVector := openAIVectorMap[agentCardHybridSearch.QueryToDescription]
+	promptVector := openAIVectorMap[agentCardHybridSearch.QueryToPrompt]
+
+	rg := *(s.Registry)
+	cards, err := rg.Search(
+		ctx,
+		agentCardHybridSearch,
+		descriptionVector,
+		promptVector,
+	)
 
 	return nil, nil
 }

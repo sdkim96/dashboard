@@ -77,7 +77,6 @@ func TestInit(t *testing.T) {
 	searchEngine.Search(
 		context.Background(),
 		"test query",
-		5,
 	)
 
 	if searchEngine == nil {

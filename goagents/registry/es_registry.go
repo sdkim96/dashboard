@@ -274,34 +274,14 @@ func (rg *ESRegistry) GetAgentCard(ctx context.Context, id string) (*AgentCard, 
 
 func (rg *ESRegistry) Search(
 	ctx context.Context,
-	query string,
+	search *AgentCardHybridSearch,
+	descriptionVector []float64,
+	promptVector []float64,
 ) ([]*AgentCard, error) {
-	resp, err := esapi.SearchRequest{
-		Index: []string{rg.Indexname},
-		Body:  strings.NewReader(query),
-	}.Do(ctx, rg.Client)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.IsError() {
-		return nil, fmt.Errorf("error searching agent cards: %s", resp.String())
-	}
+	var (
+		query      map[string]interface{}
+		agentCards []*AgentCard
+	)
 
-	var result struct {
-		Hits struct {
-			Hits []struct {
-				Source AgentCard `json:"_source"`
-			} `json:"hits"`
-		} `json:"hits"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error decoding search response: %s", err)
-	}
-
-	cards := make([]*AgentCard, len(result.Hits.Hits))
-	for i, hit := range result.Hits.Hits {
-		cards[i] = &hit.Source
-	}
-	return cards, nil
+	return agentCards, nil
 }
