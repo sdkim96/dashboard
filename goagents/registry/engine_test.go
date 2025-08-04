@@ -140,3 +140,47 @@ func TestBatch(t *testing.T) {
 	)
 
 }
+
+func TestSearchEngine(t *testing.T) {
+	err := loadEnv()
+	if err != nil {
+		t.Fatalf("Error loading .env file: %s", err)
+	}
+
+	OpenAIClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	ESClient, err := es.NewClient(
+		es.Config{
+			Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
+			APIKey:    os.Getenv("ELASTICSEARCH_API_KEY"),
+		},
+	)
+	if err != nil {
+		t.Fatalf("Error creating Elasticsearch client: %s", err)
+	}
+	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
+	cache := utl.NewVectorCache()
+	rg := registry.NewESRegistry(ESClient, "agents")
+	ai := providers.NewOpenAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ctx := context.Background()
+
+	engine := registry.Init(
+		rg,
+		embeddingStore,
+		cache,
+		ai,
+	)
+	cards, err := engine.Search(
+		ctx,
+		"휴가를 가고싶어요.",
+	)
+	if err != nil {
+		t.Fatalf("Error searching agents: %s", err)
+	}
+	if len(cards) == 0 {
+		t.Error("Expected to find at least one agent, but found none")
+	} else {
+		for _, card := range cards {
+			t.Logf("Found agent: %s - %s", card.ID, card.Description)
+		}
+	}
+}

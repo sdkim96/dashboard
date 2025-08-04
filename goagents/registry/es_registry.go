@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -278,10 +279,98 @@ func (rg *ESRegistry) Search(
 	descriptionVector []float64,
 	promptVector []float64,
 ) ([]*AgentCard, error) {
-	var (
-		query      map[string]interface{}
-		agentCards []*AgentCard
+
+	query := map[string]interface{}{
+		"size": search.TopK,
+		"query": map[string]interface{}{
+			"script_score": map[string]interface{}{
+				"query": map[string]interface{}{
+					"bool": map[string]interface{}{
+						"should": []interface{}{
+							map[string]interface{}{
+								"match": map[string]interface{}{
+									"description": map[string]interface{}{
+										"query": search.QueryRewrited,
+										"boost": search.Boost.QueryRewrited,
+									},
+								},
+							},
+							map[string]interface{}{
+								"match": map[string]interface{}{
+									"prompt": map[string]interface{}{
+										"query": search.QueryRewrited,
+										"boost": search.Boost.QueryRewrited,
+									},
+								},
+							},
+							map[string]interface{}{
+								"terms": map[string]interface{}{
+									"tags": search.Tags,
+								},
+							},
+							map[string]interface{}{
+								"exists": map[string]interface{}{
+									"field": "description_vector",
+								},
+							},
+						},
+						"minimum_should_match": 1,
+					},
+				},
+				"script": map[string]interface{}{
+					"source": `
+						double descScore = cosineSimilarity(params.descVector, 'description_vector') * params.descBoost;
+						double promptScore = cosineSimilarity(params.promptVector, 'prompt_vector') * params.promptBoost;
+						return descScore + promptScore + _score + 1.0;
+					`,
+					"params": map[string]interface{}{
+						"descVector":   descriptionVector,
+						"promptVector": promptVector,
+						"descBoost":    search.Boost.QueryRewrited,
+						"promptBoost":  search.Boost.QueryRewrited,
+					},
+				},
+			},
+		},
+	}
+
+	queryMarshaled, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling query: %w", err)
+	}
+	body := bytes.NewReader(queryMarshaled)
+
+	res, err := rg.Client.Search(
+		rg.Client.Search.WithContext(ctx),
+		rg.Client.Search.WithIndex(rg.Indexname),
+		rg.Client.Search.WithBody(body),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("es search: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return nil, fmt.Errorf("search error: %s", res.String())
+	}
+
+	var r struct {
+		Hits struct {
+			Hits []struct {
+				Source *AgentCard `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+	dataRead, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+	json.Unmarshal(dataRead, &r)
+
+	agentCards := make([]*AgentCard, 0, len(r.Hits.Hits))
+	for _, hit := range r.Hits.Hits {
+		agentCards = append(agentCards, hit.Source)
+	}
 
 	return agentCards, nil
 }
