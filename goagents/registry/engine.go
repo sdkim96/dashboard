@@ -19,7 +19,7 @@ type SearchEngine struct {
 	Registry  *AgentRegistryI
 	Embedding *utl.EmbeddingStoreI
 	Cache     *utl.EmbeddingCacheI
-	AIClient  *providers.OpenAIClient
+	AIClient  *providers.OpenAIProvider
 }
 
 type QueryOption struct {
@@ -290,7 +290,7 @@ func Init(
 	registry AgentRegistryI,
 	embedding utl.EmbeddingStoreI,
 	cache utl.EmbeddingCacheI,
-	aiClient *providers.OpenAIClient,
+	aiClient *providers.OpenAIProvider,
 ) *SearchEngine {
 
 	err := registry.CreateIndexIfNotExists(

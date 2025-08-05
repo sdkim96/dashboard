@@ -42,7 +42,7 @@ func TestInit(t *testing.T) {
 	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
 	cache := utl.NewVectorCache()
 	rg := registry.NewESRegistry(ESClient, "agents")
-	ai := providers.NewOpenAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ai := providers.NewOpenAIProvider(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
 	ctx := context.Background()
 
 	// Initialize the search engine
@@ -114,7 +114,7 @@ func TestBatch(t *testing.T) {
 	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
 	cache := utl.NewVectorCache()
 	rg := registry.NewESRegistry(ESClient, "agents")
-	ai := providers.NewOpenAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ai := providers.NewOpenAIProvider(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
 	ctx := context.Background()
 
 	// Initialize the search engine
@@ -160,7 +160,7 @@ func TestSearchEngine(t *testing.T) {
 	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
 	cache := utl.NewVectorCache()
 	rg := registry.NewESRegistry(ESClient, "agents")
-	ai := providers.NewOpenAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ai := providers.NewOpenAIProvider(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
 	ctx := context.Background()
 
 	engine := registry.Init(

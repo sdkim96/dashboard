@@ -103,7 +103,7 @@ func initializeEngine() *rg.SearchEngine {
 	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
 	cache := utl.NewVectorCache()
 	registry := rg.NewESRegistry(ESClient, "agents")
-	ai := providers.NewOpenAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ai := providers.NewOpenAIProvider(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
 
 	engine := rg.Init(registry, embeddingStore, cache, ai)
 	return engine
