@@ -171,7 +171,8 @@ func TestSearchEngine(t *testing.T) {
 	)
 	cards, err := engine.Search(
 		ctx,
-		"휴가를 가고싶어요.",
+		"다시 작성해줄래?",
+		registry.WithUserContext("유저는 지쳐서 휴가를 원합니다. 필요한 정보는 휴가 신청서나, 휴가 기안문, 회사 내부 정책, 인수인계 등입니다."),
 	)
 	if err != nil {
 		t.Fatalf("Error searching agents: %s", err)
