@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.58.2",
+    "elasticsearch[async]>=9.1.0",
     "fastapi[standard]>=0.116.1",
     "langchain-postgres>=0.0.15",
     "loguru>=0.7.3",
