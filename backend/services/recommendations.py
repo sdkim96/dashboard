@@ -1,5 +1,6 @@
 import asyncio
 import os
+import httpx
 import time
 import datetime as dt
 import collections
@@ -7,7 +8,7 @@ import uuid
 from typing import Tuple, List
 
 from openai import AsyncOpenAI
-from sqlalchemy import select, func, distinct
+from sqlalchemy import select, func, distinct, update
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
@@ -18,6 +19,7 @@ import backend.models as mdl
 from agents.main import AsyncSimpleAgent
 from agents.registry import AgentRegistry
 
+import backend.config as cfg
 import backend.utils.logger as lg
 from backend.utils.history import get_history, set_history
 from backend.utils.agent_spec import get_agent_spec
@@ -265,7 +267,8 @@ def get_recommendation_masters(
             RecommendationAgents.agent_id == Agent.agent_id
         )
         .where(
-            Recommendation.user_id == user_profile.user_id
+            Recommendation.user_id == user_profile.user_id,
+            Recommendation.is_deleted.is_(False)
         )
         .group_by(
             Recommendation.recommendation_id,
@@ -274,6 +277,7 @@ def get_recommendation_masters(
             Recommendation.created_at,
             Recommendation.work_where,
         )
+        .order_by(Recommendation.created_at.desc())
     )
     lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
     try:
@@ -420,8 +424,6 @@ async def create_recommendation(
 ) -> Tuple[mdl.Recommendation, Exception | None]:
     """
     Create a new recommendation for the user.
-    The process of creating a recommendation:
-    1. Search the search engine 
 
     Args:
         session (Session): Database session dependency.
@@ -431,6 +433,9 @@ async def create_recommendation(
     Returns:
         Tuple[mdl.Recommendation, Exception | None]: The created recommendation and any error encountered.
     """
+    lg.logger.info(
+        f"Creating recommendation for user {user_profile.user_id} with request ID {request_id}"
+    )
     recommendation_id= "rec-" + str(uuid.uuid4())
     work_when = dt.datetime.now()
 
@@ -461,13 +466,16 @@ async def create_recommendation(
 
     context, err= await simple_agent.aparse(
         messages=messages,
-        deployment_id="gpt-4o-mini",
+        deployment_id="gpt-5-nano",
         response_fmt=AnalyzedContext
+    )
+    lg.logger.info(
+        f"Context analyzed for user {user_profile.user_id}: {context}"
     )
     if err or not context:
         return mdl.Recommendation.failed(), err
     
-
+    
     agent_details, err = _get_agent_details(session=session)
     if err:
         return mdl.Recommendation.failed(), err
@@ -475,14 +483,17 @@ async def create_recommendation(
         agent_cards=[agent.model_dump(mode="json") for agent in agent_details],
     )
     search_results, err = await registry.asearch_by_ai(
-        "최적의 AI 에이전트를 10개 추천해줘. 이유와 점수와 함께.",
+        "최적의 AI 에이전트들을 찾아줘 이유와 점수를 함께 알려줘",
         context=context.description(),
         search_engine=simple_agent
     )
+    lg.logger.info(
+        f"Search results for user {user_profile.user_id}: {search_results}"
+    )
     if err:
         return mdl.Recommendation.failed(), err
-    
 
+    
     recommended_depts = collections.defaultdict(list)
     for result in search_results:
         recommended_depts[result["department_name"]].append(mdl.Agent.model_validate(result))
@@ -555,7 +566,7 @@ async def chat_completion_with_agent(
     )
     yield await chunk(
         event="status", 
-        data={"message": "🧐 Analyzing your question..."}, 
+        data={"message": "🧐 질문을 분석중입니다..."}, 
     )
     await asyncio.sleep(0.1)
     if err:
@@ -605,7 +616,7 @@ async def chat_completion_with_agent(
     )
     yield await chunk(
         event="status", 
-        data={"message": "🤖 Generating Answers..."}, 
+        data={"message": "🤖 답변을 생성중입니다..."}, 
     )
     await asyncio.sleep(0.1)
     
@@ -726,3 +737,47 @@ def get_conversation_id_by_recommendation(
         return "", None
 
     return result[0], None
+
+
+
+
+def delete_recommendation(
+    session: Session,
+    user_profile: mdl.User,
+    request_id: str,
+    recommendation_id: str
+) -> Exception | None:
+    """
+    Delete a recommendation by its ID.
+
+    Args:
+        session (Session): Database session dependency.
+        user_profile (mdl.User): The profile of the current user.
+        recommendation_id (str): The ID of the recommendation to delete.
+
+    Returns:
+        Exception | None: An error if the recommendation could not be deleted, otherwise None.
+    """
+    Recommendation = rec_tbl.Recommendation
+
+    stmt = (
+        update(Recommendation)
+        .where(
+            Recommendation.recommendation_id == recommendation_id,
+            Recommendation.user_id == user_profile.user_id
+        )
+        .values(
+            is_deleted=True,
+            updated_at=dt.datetime.now()    
+        )
+    )
+    lg.logger.debug(f"SQL Query: {stmt.compile(compile_kwargs={'literal_binds': True})}")
+    try:
+        session.execute(stmt)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        return e
+    
+    return None
+    

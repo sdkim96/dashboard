@@ -356,6 +356,33 @@ export type CreateConversationResponse = {
 };
 
 /**
+ * DeleteRecommendationResponse
+ * DELETE /api/v1/recommendations/{recommendation_id} Response model
+ */
+export type DeleteRecommendationResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Recommendation Id
+     * ID of the deleted recommendation.
+     */
+    recommendation_id: string;
+};
+
+/**
  * GetAgentResponse
  * GET /api/v1/agents/{agent_id} Response model
  */
@@ -1588,6 +1615,36 @@ export type CreateRecommendationApiV1RecommendationsPostResponses = {
 };
 
 export type CreateRecommendationApiV1RecommendationsPostResponse = CreateRecommendationApiV1RecommendationsPostResponses[keyof CreateRecommendationApiV1RecommendationsPostResponses];
+
+export type DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Recommendation Id
+         */
+        recommendation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/recommendations/{recommendation_id}';
+};
+
+export type DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteError = DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteErrors[keyof DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteErrors];
+
+export type DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeleteRecommendationResponse;
+};
+
+export type DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteResponse = DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteResponses[keyof DeleteRecommendationApiV1RecommendationsRecommendationIdDeleteResponses];
 
 export type GetRecommendationByIdApiV1RecommendationsRecommendationIdGetData = {
     body?: never;

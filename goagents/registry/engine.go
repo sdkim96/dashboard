@@ -440,6 +440,7 @@ func (s *SearchEngine) Search(
 		return nil, err
 	}
 
+	log.Println("Search Query Rewrited:", agentCardHybridSearch.QueryRewrited)
 	cards, err := rg.Search(
 		ctx,
 		agentCardHybridSearch,

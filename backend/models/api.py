@@ -544,3 +544,23 @@ class GetRecommendationConversationResponse(BaseResponse):
             conversation=ConversationMaster.mock(),
             messages=[MessageResponse.mock()]
         )
+
+
+class DeleteRecommendationResponse(BaseResponse):
+    """
+    DELETE /api/v1/recommendations/{recommendation_id} Response model
+    """
+    recommendation_id: str = Field(
+        ...,
+        description="ID of the deleted recommendation.",
+        examples=[str(uuid.uuid4())]
+    )
+    
+    @classmethod
+    def mock(cls) -> "DeleteRecommendationResponse":
+        return cls(
+            status="success",
+            message="Recommendation deleted successfully.",
+            request_id=str(uuid.uuid4()),
+            recommendation_id=str(uuid.uuid4())
+        )

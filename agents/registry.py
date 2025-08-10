@@ -148,7 +148,7 @@ class AgentRegistry:
         searched_result, err = await search_engine.aparse(
             messages=[{"role": "system", "content": system_prompt},
                       {"role": "user", "content": user_prompt}],
-            deployment_id="gpt-4o",
+            deployment_id="gpt-5-mini",
             response_fmt=SearchResult
         )
         if err or not searched_result:

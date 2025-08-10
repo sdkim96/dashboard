@@ -27,11 +27,20 @@ class Config(BaseModel):
     POSTGRES_DB: str = Field(
         os.getenv("POSTGRES_DB", "dashboard"),
     )
+    GO_AGENTS_URL: str = Field(
+        os.getenv("GO_AGENTS_URL", "http://localhost:8080"),
+        description="URL for the Go Agents service.",
+        examples=["http://localhost:8080", "https://goagents.example.com"]
+    )
+
 
     @property
     def database_url(self) -> str:
         return f"postgresql+psycopg2://{self.POSTGRES_USERNAME}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
     
+    @property
+    def go_searchagents_url(self) -> str:
+        return self.GO_AGENTS_URL + "/api/v1/recommend/agents"
 
 CONFIG = Config(
     CURRENT_ENV=os.getenv("CURRENT_ENV", ""),
@@ -40,4 +49,5 @@ CONFIG = Config(
     POSTGRES_HOST=os.getenv("POSTGRES_HOST", "localhost"),
     POSTGRES_PORT=os.getenv("POSTGRES_PORT", '5432'),
     POSTGRES_DB=os.getenv("POSTGRES_DB", "dashboard"),
+    GO_AGENTS_URL=os.getenv("GO_AGENTS_URL", "http://localhost:8080"),
 )

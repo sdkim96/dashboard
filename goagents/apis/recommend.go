@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/sdkim96/dashboard/registry"
 
@@ -14,11 +15,23 @@ import (
 	providers "github.com/sdkim96/dashboard/utils/providers"
 )
 
-func RecommendAgents(query string, userContext string) ([]*registry.AgentCard, error) {
+type AgentRecommended struct {
+	AgentID        string    `json:"agent_id"`
+	AgentVersion   int       `json:"agent_version"`
+	DepartmentName string    `json:"department_name"`
+	Name           string    `json:"name"`
+	Description    string    `json:"description"`
+	Tags           []string  `json:"tags"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+func RecommendAgents(query string, userContext string) ([]*AgentRecommended, error) {
 	err := utl.LoadEnv()
 	if err != nil {
 		return nil, fmt.Errorf("Error loading .env file: %s", err)
 	}
+	agentRecommended := make([]*AgentRecommended, 0)
 
 	OpenAIClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
 	ESClient, err := es.NewClient(
@@ -54,9 +67,18 @@ func RecommendAgents(query string, userContext string) ([]*registry.AgentCard, e
 		return nil, fmt.Errorf("Expected to find at least one agent, but found none")
 	} else {
 		for _, card := range cards {
-			fmt.Printf("Found agent: %s - %s\n", card.ID, card.Description)
+			agentRecommended = append(agentRecommended, &AgentRecommended{
+				AgentID:        card.ID,
+				AgentVersion:   1,
+				DepartmentName: card.DepartmentName,
+				Name:           card.Name,
+				Description:    card.Description,
+				Tags:           card.Tags,
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			})
 		}
 	}
 
-	return cards, nil
+	return agentRecommended, nil
 }
