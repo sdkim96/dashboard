@@ -32,6 +32,22 @@ class Config(BaseModel):
         description="URL for the Go Agents service.",
         examples=["http://localhost:8080", "https://goagents.example.com"]
     )
+    BLOB_CONNECTION_STRING: str = Field(
+        os.getenv("BLOB_CONNECTION_STRING", ""),
+        description="Connection string for Azure Blob Storage."
+    )
+    BLOG_CONTAINER_NAME: str = Field(
+        os.getenv("BLOG_CONTAINER_NAME", "dashboard"),
+        description="Name of the Azure Blob Storage container for the blog."
+    )
+    OCR_ENDPOINT: str = Field(
+        os.getenv("OCR_ENDPOINT", "adsfasdf"),
+        description="Endpoint for the Azure OCR service."
+    )
+    OCR_API_KEY: str = Field(
+        os.getenv("OCR_API_KEY", "asdf"),
+        description="API key for the Azure OCR service."
+    )
 
 
     @property
@@ -50,4 +66,8 @@ CONFIG = Config(
     POSTGRES_PORT=os.getenv("POSTGRES_PORT", '5432'),
     POSTGRES_DB=os.getenv("POSTGRES_DB", "dashboard"),
     GO_AGENTS_URL=os.getenv("GO_AGENTS_URL", "http://localhost:8080"),
+    BLOB_CONNECTION_STRING=os.getenv("BLOB_CONNECTION_STRING", "dsafasdf"),
+    BLOG_CONTAINER_NAME=os.getenv("BLOG_CONTAINER_NAME", "dashboard"),
+    OCR_ENDPOINT=os.getenv("OCR_ENDPOINT", "wwerzcxv"),
+    OCR_API_KEY=os.getenv("OCR_API_KEY", "")
 )
