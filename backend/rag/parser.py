@@ -9,9 +9,33 @@ import azure.ai.documentintelligence.models as mdl
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence.aio import DocumentIntelligenceClient
 
-
 from backend.config import CONFIG
 
+
+@dataclass
+class AnalyzedParagraph:
+    content: str
+    page: int
+    polygon: List[float]
+
+@dataclass
+class AnalyzedTable:
+    content: str
+    page: int
+    idx_to_remove: List[int]
+
+@dataclass
+class FigureElement:
+    content: str
+    polygon: List[float]
+
+@dataclass
+class AnalyzedFigure:
+    elements: List[FigureElement]
+    figure_polygon: List[float]
+    figure_caption: str
+    page: int
+    idx_to_remove: List[int]
 
 @asynccontextmanager
 async def get_ocr(
@@ -63,32 +87,6 @@ async def read(
         return None, e
     
     return result, None
-
-
-@dataclass
-class AnalyzedParagraph:
-    content: str
-    page: int
-    polygon: List[float]
-
-@dataclass
-class AnalyzedTable:
-    content: str
-    page: int
-    idx_to_remove: List[int]
-
-@dataclass
-class FigureElement:
-    content: str
-    polygon: List[float]
-
-@dataclass
-class AnalyzedFigure:
-    elements: List[FigureElement]
-    figure_polygon: List[float]
-    figure_caption: str
-    page: int
-    idx_to_remove: List[int]
     
 
 async def analyze_paragraphs(
