@@ -34,7 +34,7 @@ async def get_blob(
     finally:
         await container_client.close()
 
-async def upload_file_to_blob(
+async def upload_file(
     file_stream: io.BytesIO,
     file_name: str
 ) -> str:

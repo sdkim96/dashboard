@@ -51,7 +51,7 @@ async def get_ocr(
         await client.close()
 
 
-async def pipeline(
+async def analyze_file(
     blob_url: str, 
     mock_path: str | None = None
 ) -> Tuple[List[str], Exception | None]:
