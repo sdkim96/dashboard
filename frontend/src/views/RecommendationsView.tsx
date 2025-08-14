@@ -36,12 +36,15 @@ import {
   Fade,
   ScaleFade,
   SlideFade,
+  Menu, MenuButton, MenuList, MenuItem,
+  Tooltip,
+  AlertDialog, AlertDialogBody, AlertDialogHeader, AlertDialogFooter, AlertDialogContent, AlertDialogOverlay,
 } from '@chakra-ui/react';
 import { keyframes } from '@emotion/react';
 import { 
   FiSend, 
   FiSearch, 
-  FiPlus, 
+  FiCopy, 
   FiMessageSquare, 
   FiCalendar, 
   FiClock, 
@@ -61,12 +64,13 @@ import {
   FiCompass,
   FiCpu,
   FiGlobe,
+  FiMoreVertical, FiTrash2
 } from 'react-icons/fi';
 import { 
   getRecommendationsApiV1RecommendationsGet,
   getRecommendationByIdApiV1RecommendationsRecommendationIdGet,
   createRecommendationApiV1RecommendationsPost,
-  chatCompletionWithAgentApiV1RecommendationsRecommendationIdCompletionPost,
+  deleteRecommendationApiV1RecommendationsRecommendationIdDelete,
   newConversationApiV1ConversationsNewPost,
   getConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGet
   
@@ -79,7 +83,6 @@ import type {
   PostRecommendationCompletionRequest,
 } from '../client';
 
-// 로딩 애니메이션 키프레임
 const pulse = keyframes`
   0% { transform: scale(1); opacity: 0.7; }
   50% { transform: scale(1.05); opacity: 1; }
@@ -129,6 +132,11 @@ const RecommendationChat = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
+
+  // 삭제용 상태
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
   
   const toast = useToast();
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -138,6 +146,15 @@ const RecommendationChat = () => {
   const messageBg = useColorModeValue('gray.100', 'gray.700');
   const userMessageBg = useColorModeValue('blue.500', 'blue.600');
   const cardHoverShadow = useColorModeValue('xl', 'dark-lg');
+
+  const copyToClipboard = async (text: string) => {
+  try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: '복사됨', status: 'success', duration: 1200 });
+    } catch {
+      toast({ title: '복사 실패', status: 'error', duration: 1500 });
+    }
+  };
 
   // 추천 목록 불러오기
   useEffect(() => {
@@ -173,6 +190,45 @@ const RecommendationChat = () => {
       setCurrentTipIndex(0);
     }
   }, [isLoadingDetail]);
+
+  // 추천 삭제 (낙관적 업데이트)
+  const handleDeleteRecommendation = async (recommendation_id: string) => {
+    // 낙관적: 먼저 리스트에서 제거
+    const prev = recommendations;
+    setRecommendations(prev.filter(r => r.recommendation_id !== recommendation_id));
+
+    // 상세가 현재 선택되어 있으면 초기화
+    if (selectedRecommendation?.recommendation_id === recommendation_id) {
+      setSelectedRecommendation(null);
+      setRecommendationDetail(null);
+      setMessages([]);
+      setIsDrawerOpen(false);
+    }
+
+    try {
+      const res = await deleteRecommendationApiV1RecommendationsRecommendationIdDelete({
+        path: { recommendation_id },
+      });
+
+      if (res.data?.status !== 'success') {
+        throw new Error(res.data?.message || '삭제 실패');
+      }
+
+      toast({ title: '삭제 완료', status: 'success', duration: 1500 });
+    } catch (e: any) {
+      // 롤백
+      setRecommendations(prev);
+      toast({
+        title: '삭제 실패',
+        description: e?.message || '다시 시도해주세요',
+        status: 'error',
+        duration: 2000,
+      });
+    } finally {
+      setDeletingId(null);
+      setIsDeleteOpen(false);
+    }
+  };
 
   const fetchRecommendations = async () => {
     let response;
@@ -253,25 +309,21 @@ const RecommendationChat = () => {
     fetchRecommendationDetail(rec.recommendation_id);
   };
 
-  const fetchNewConversation = async (): Promise<void> => {
-      try {
-        const response = await newConversationApiV1ConversationsNewPost();
-        if (response.data && response.data.conversation_id) {
-          setConversationId(response.data.conversation_id);
-          setCurrentFinalParentMessageId(response.data.parent_message_id || null);
-        }
-        
-      } catch (error) {
-        console.error('Failed to fetch new conversation:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load conversations',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
+  const fetchNewConversation = async (): Promise<{ convId: string; parentId: string | null } | null> => {
+    try {
+      const response = await newConversationApiV1ConversationsNewPost();
+      if (response.data?.conversation_id) {
+        const convId = response.data.conversation_id;
+        const parentId = response.data.parent_message_id || null;
+        setConversationId(convId);
+        setCurrentFinalParentMessageId(parentId);
+        return { convId, parentId };
       }
-    };
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to load conversations', status: 'error', duration: 3000, isClosable: true });
+    }
+    return null;
+  };
 
   // 검색 처리
   const handleSearch = async () => {
@@ -352,7 +404,15 @@ const RecommendationChat = () => {
         });
 
       if (conversationResponse.data && conversationResponse.data.status === 'error') {
-        await fetchNewConversation();
+        const convo = await fetchNewConversation();
+        const message = recommendationDetail?.work_details || '';
+
+        await handleSendMessage({
+          message,
+          agent,                       
+          convId: convo?.convId,       
+          parentId: convo?.parentId ?? null,
+        });
         return;
       }
 
@@ -366,33 +426,32 @@ const RecommendationChat = () => {
   };
 
   // 메시지 전송
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !selectedAgent || isSending) return;
+  const handleSendMessage = async (override?: {
+    message?: string;
+    agent?: Agent;
+    convId?: string;
+    parentId?: string | null;
+  }) => {
+    const msg = override?.message ?? inputMessage;
+    const agent = override?.agent ?? selectedAgent;
+    const convId = override?.convId ?? conversationId;
+    const parentId = override?.parentId ?? currentFinalParentMessageId ?? null;
+
+    if (!msg?.trim() || !agent || isSending) return;
 
     setIsSending(true);
-    const userMessage = inputMessage;
-   
+
     const requestBody: PostRecommendationCompletionRequest = {
       action: 'next',
-      conversation_id: conversationId || `conv_${Date.now()}`,
-      parent_message_id: currentFinalParentMessageId || null,
-      llm: {
-        issuer: 'openai',
-        deployment_id: 'gpt-4o-mini'
-      },
+      conversation_id: convId || `conv_${Date.now()}`,
+      parent_message_id: parentId,
+      llm: { issuer: 'openai', deployment_id: 'gpt-5-nano' },
       agent: {
-        agent_id: selectedAgent.agent_id,
-        agent_version: selectedAgent.agent_version,
-        department_id: selectedAgent.department_name || null
+        agent_id: agent.agent_id,
+        agent_version: agent.agent_version,
+        department_id: agent.department_name || null
       },
-      messages: [
-        {
-          content: {
-            type: 'text',
-            parts: [userMessage]
-          }
-        }
-      ]
+      messages: [{ content: { type: 'text', parts: [msg] } }]
     };
 
     const tempUserMessage: MessageResponse = {
@@ -400,7 +459,7 @@ const RecommendationChat = () => {
       role: 'user',
       content: {
         type: 'text',
-        parts: [userMessage]
+        parts: [msg]
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -650,7 +709,7 @@ const RecommendationChat = () => {
     try {
       const conversationResponse = await getConversationByRecommendationApiV1RecommendationsRecommendationIdConversationsGet({
         path: { recommendation_id: selectedRecommendation?.recommendation_id || '' },
-        query: { agent_id: selectedAgent.agent_id || '', agent_version: selectedAgent.agent_version || 0 }
+        query: { agent_id: agent.agent_id || '', agent_version: agent.agent_version || 0 }
       });
 
       if (conversationResponse.data && conversationResponse.data.status === 'error') {
@@ -795,9 +854,7 @@ const RecommendationChat = () => {
                 recommendations.map((rec, index) => (
                   <ScaleFade in={true} delay={index * 0.05} key={rec.recommendation_id}>
                     <Card
-                      bg={selectedRecommendation?.recommendation_id === rec.recommendation_id 
-                        ? 'white' 
-                        : 'white'}
+                      bg={selectedRecommendation?.recommendation_id === rec.recommendation_id ? 'white' : 'white'}
                       borderWidth="1px"
                       borderColor={selectedRecommendation?.recommendation_id === rec.recommendation_id 
                         ? 'transparent' 
@@ -842,56 +899,82 @@ const RecommendationChat = () => {
                           />
                         </>
                       )}
-                      
+
                       <CardBody p={3} position="relative" zIndex={2}>
-                        <VStack align="start" spacing={2}>
-                          <Text 
-                            fontWeight="semibold" 
-                            fontSize="sm" 
-                            color="gray.800" 
-                            noOfLines={1}
-                          >
-                            {rec.title}
-                          </Text>
-                          <Text fontSize="xs" color="gray.600" noOfLines={2}>
-                            {rec.description}
-                          </Text>
-                          <HStack spacing={2} flexWrap="wrap">
-                            {rec.departments?.slice(0, 2).map((dept, idx) => {
-                              const deptKey = dept as Departments;
-                              const deptStyle = DEPARTMENTS_STYLES[deptKey];
-                              return (
-                                <Badge 
-                                  key={idx} 
-                                  size="sm" 
-                                  bg={selectedRecommendation?.recommendation_id === rec.recommendation_id 
-                                    ? `${deptStyle?.color || 'purple'}.50`
-                                    : 'gray.100'}
-                                  color={selectedRecommendation?.recommendation_id === rec.recommendation_id 
-                                    ? `${deptStyle?.color || 'purple'}.600`
-                                    : 'gray.600'}
-                                  borderRadius="full"
-                                  fontSize="xs"
-                                  px={2}
-                                  py={0.5}
-                                  border="1px solid"
-                                  borderColor={selectedRecommendation?.recommendation_id === rec.recommendation_id 
-                                    ? `${deptStyle?.color || 'purple'}.200`
-                                    : 'transparent'}
-                                >
-                                  <HStack spacing={1}>
-                                    <Icon as={DEPARTMENT_ICONS[deptKey] || FiLayers} boxSize={3} />
-                                    <Text>{dept}</Text>
-                                  </HStack>
-                                </Badge>
-                              );
-                            })}
-                          </HStack>
-                          <HStack spacing={2} color="gray.500" fontSize="xs">
-                            <Icon as={FiCalendar} boxSize={3} />
-                            <Text>{formatDate(rec.created_at || '')}</Text>
-                          </HStack>
-                        </VStack>
+                        <Flex align="flex-start" justify="space-between" w="100%">
+                          {/* 왼쪽: 텍스트 & 태그 */}
+                          <VStack align="start" spacing={2} flex="1" pr={2}>
+                            <Text fontWeight="semibold" fontSize="sm" color="gray.800" noOfLines={1}>
+                              {rec.title}
+                            </Text>
+                            <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                              {rec.description}
+                            </Text>
+                            <HStack spacing={2} flexWrap="wrap">
+                              {rec.departments?.slice(0, 2).map((dept, idx) => {
+                                const deptKey = dept as Departments;
+                                const deptStyle = DEPARTMENTS_STYLES[deptKey];
+                                return (
+                                  <Badge 
+                                    key={idx} 
+                                    size="sm" 
+                                    bg={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                                      ? `${deptStyle?.color || 'purple'}.50`
+                                      : 'gray.100'}
+                                    color={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                                      ? `${deptStyle?.color || 'purple'}.600`
+                                      : 'gray.600'}
+                                    borderRadius="full"
+                                    fontSize="xs"
+                                    px={2}
+                                    py={0.5}
+                                    border="1px solid"
+                                    borderColor={selectedRecommendation?.recommendation_id === rec.recommendation_id 
+                                      ? `${deptStyle?.color || 'purple'}.200`
+                                      : 'transparent'}
+                                  >
+                                    <HStack spacing={1}>
+                                      <Icon as={DEPARTMENT_ICONS[deptKey] || FiLayers} boxSize={3} />
+                                      <Text>{dept}</Text>
+                                    </HStack>
+                                  </Badge>
+                                );
+                              })}
+                            </HStack>
+                            <HStack spacing={2} color="gray.500" fontSize="xs">
+                              <Icon as={FiCalendar} boxSize={3} />
+                              <Text>{formatDate(rec.created_at || '')}</Text>
+                            </HStack>
+                          </VStack>
+
+                          {/* 오른쪽: 3점 메뉴 */}
+                          <Menu>
+                            <Tooltip label="더보기" openDelay={400}>
+                              <MenuButton
+                                as={IconButton}
+                                aria-label="more"
+                                icon={<FiMoreVertical />}
+                                variant="ghost"
+                                size="sm"
+                                borderRadius="full"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </Tooltip>
+                            <MenuList>
+                              <MenuItem
+                                icon={<FiTrash2 />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingId(rec.recommendation_id);
+                                  setIsDeleteOpen(true);
+                                }}
+                                color="red.500"
+                              >
+                                삭제
+                              </MenuItem>
+                            </MenuList>
+                          </Menu>
+                        </Flex>
                       </CardBody>
                     </Card>
                   </ScaleFade>
@@ -1171,7 +1254,7 @@ const RecommendationChat = () => {
         isOpen={isDrawerOpen}
         placement="right"
         onClose={handleDrawerClose}
-        size="lg"
+        size="xl"
       >
         <DrawerOverlay />
         <DrawerContent>
@@ -1191,110 +1274,149 @@ const RecommendationChat = () => {
               {/* 메시지 영역 */}
               <Box flex={1} overflowY="auto" p={4} bg={useColorModeValue('gray.50', 'gray.800')}>
                 <VStack spacing={4} align="stretch">
-                  {messages.map((message) => (
-                    <Flex
-                      key={message.message_id}
-                      justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
-                    >
-                      <Box
-                        maxW="80%"
-                        bg={message.role === 'user' ? userMessageBg : 'white'}
-                        color={message.role === 'user' ? 'white' : 'gray.800'}
-                        px={4}
-                        py={3}
-                        borderRadius="2xl"
-                        borderTopRightRadius={message.role === 'user' ? 'sm' : '2xl'}
-                        borderTopLeftRadius={message.role === 'user' ? '2xl' : 'sm'}
-                        boxShadow="sm"
-                      >
-                        <Box
-                          sx={{
-                            '& p': { mb: 2, lineHeight: 1.6 },
-                            '& p:last-child': { mb: 0 },
-                            '& h1': { fontSize: '2xl', fontWeight: 'bold', mt: 4, mb: 2 },
-                            '& h2': { fontSize: 'xl', fontWeight: 'bold', mt: 3, mb: 2 },
-                            '& h3': { fontSize: 'lg', fontWeight: 'bold', mt: 2, mb: 1 },
-                            '& ul': { pl: 6, mb: 2 },
-                            '& ol': { pl: 6, mb: 2 },
-                            '& li': { mb: 1 },
-                            '& blockquote': { 
-                              pl: 4, 
-                              borderLeft: '4px solid',
-                              borderColor: 'gray.300',
-                              fontStyle: 'italic',
-                              my: 2 
-                            },
-                            '& code': {
-                              bg: message.role === 'user' ? 'whiteAlpha.300' : 'gray.200',
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 'sm',
-                              fontSize: 'sm',
-                              fontFamily: 'monospace'
-                            },
-                            '& pre': {
-                              bg: message.role === 'user' ? 'whiteAlpha.300' : 'gray.800',
-                              color: message.role === 'user' ? 'white' : 'gray.100',
-                              p: 3,
-                              borderRadius: 'md',
-                              overflowX: 'auto',
-                              my: 2,
-                              '& code': {
-                                bg: 'transparent',
-                                p: 0,
-                                color: 'inherit'
-                              }
-                            },
-                            '& table': {
-                              borderCollapse: 'collapse',
-                              my: 2,
-                              width: '100%'
-                            },
-                            '& th, & td': {
-                              border: '1px solid',
-                              borderColor: 'gray.300',
-                              p: 2
-                            },
-                            '& th': {
-                              bg: 'gray.100',
-                              fontWeight: 'bold'
-                            },
-                            '& a': {
-                              color: 'blue.500',
-                              textDecoration: 'underline',
-                              _hover: { color: 'blue.600' }
-                            },
-                            '& hr': {
-                              my: 4,
-                              borderColor: 'gray.300'
-                            }
-                          }}
-                        >
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              // 코드 블록에 복사 버튼 추가 (선택사항)
-                              pre: ({ children }) => (
-                                <Box position="relative">
-                                  <Box as="pre" overflow="auto">
-                                    {children}
-                                  </Box>
-                                </Box>
-                              ),
-                            }}
+                  {messages.map((message) => {
+                    const isUser = message.role === 'user';
+                    const rawText = message.content.parts?.join('') || '';
+
+                    if (isUser) {
+                      // ▶ 사용자 메시지: 오른쪽 말풍선 (modern, gradient)
+                      return (
+                        <Flex key={message.message_id} justify="flex-end">
+                          <Box position="relative" maxW="75%">
+                            <Box
+                              bgGradient="linear(to-r, blue.500, blue.600)"
+                              color="white"
+                              px={4}
+                              py={3}
+                              borderRadius="2xl"
+                              borderTopRightRadius="sm"
+                              boxShadow="sm"
+                            >
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  code({ inline, children, ...props }) {
+                                    const codeText = String(children);
+                                    if (inline) {
+                                      return (
+                                        <Box as="code" bg="whiteAlpha.300" px="1" py="0.5" borderRadius="sm" {...props}>
+                                          {children}
+                                        </Box>
+                                      );
+                                    }
+                                    return (
+                                      <Box position="relative" my={2}>
+                                        <IconButton
+                                          aria-label="copy code"
+                                          icon={<FiCopy />}
+                                          size="xs"
+                                          variant="ghost"
+                                          position="absolute"
+                                          top="6px"
+                                          right="6px"
+                                          onClick={() => copyToClipboard(codeText)}
+                                        />
+                                        <Box as="pre" overflow="auto" bg="blackAlpha.600" color="white" p={3} borderRadius="md">
+                                          <Box as="code">{children}</Box>
+                                        </Box>
+                                      </Box>
+                                    );
+                                  },
+                                }}
+                              >
+                                {rawText}
+                              </ReactMarkdown>
+                            </Box>
+                            <Text fontSize="xs" opacity={0.6} textAlign="right" mt={1}>
+                              {new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                            </Text>
+                          </Box>
+                        </Flex>
+                      );
+                    }
+
+                    return (
+                      <HStack key={message.message_id} align="flex-start" spacing={3}>
+                        <Avatar size="sm" name={selectedAgent?.name} bg="purple.500" />
+                        <Box flex="1" position="relative">
+                          <Box
+                            bg={useColorModeValue('white', 'gray.900')}
+                            border="1px solid"
+                            borderColor={useColorModeValue('gray.200', 'gray.700')}
+                            borderRadius="lg"
+                            px={4}
+                            py={3}
+                            boxShadow="sm"
                           >
-                            {message.content.parts?.join('') || ''}
-                          </ReactMarkdown>
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h1: ({children}) => <Heading size="md" mt={2} mb={1}>{children}</Heading>,
+                                h2: ({children}) => <Heading size="sm" mt={2} mb={1}>{children}</Heading>,
+                                h3: ({children}) => <Text fontWeight="bold" mt={2} mb={1}>{children}</Text>,
+                                ul: ({children}) => <Box as="ul" pl={5} mb={2} sx={{'> li': { mb: 1 }}}>{children}</Box>,
+                                ol: ({children}) => <Box as="ol" pl={5} mb={2} sx={{'> li': { mb: 1 }}}>{children}</Box>,
+                                blockquote: ({children}) => (
+                                  <Box pl={3} borderLeft="3px solid" borderColor="gray.300" fontStyle="italic" my={2}>{children}</Box>
+                                ),
+                                code({ inline, children, ...props }) {
+                                  const codeText = String(children);
+                                  if (inline) {
+                                    return (
+                                      <Box as="code" bg={useColorModeValue('gray.100', 'gray.700')} px="1" py="0.5" borderRadius="sm" {...props}>
+                                        {children}
+                                      </Box>
+                                    );
+                                  }
+                                  return (
+                                    <Box position="relative" my={2}>
+                                      <IconButton
+                                        aria-label="copy code"
+                                        icon={<FiCopy />}
+                                        size="xs"
+                                        variant="ghost"
+                                        position="absolute"
+                                        top="6px"
+                                        right="6px"
+                                        onClick={() => copyToClipboard(codeText)}
+                                      />
+                                      <Box
+                                        as="pre"
+                                        overflow="auto"
+                                        bg={useColorModeValue('gray.900', 'gray.800')}
+                                        color={useColorModeValue('gray.100', 'gray.100')}
+                                        p={3}
+                                        borderRadius="md"
+                                      >
+                                        <Box as="code">{children}</Box>
+                                      </Box>
+                                    </Box>
+                                  );
+                                },
+                                hr: () => <Divider my={4} />,
+                                a: ({children, ...props}) => <Box as="a" color="blue.500" textDecoration="underline" {...props}>{children}</Box>,
+                                p: ({children}) => <Text mb={2} lineHeight="1.7">{children}</Text>,
+                              }}
+                            >
+                              {rawText}
+                            </ReactMarkdown>
+                            <HStack justify="flex" mt={2}>
+                            <IconButton
+                              aria-label="copy message"
+                              icon={<FiCopy />}
+                              size="md"
+                              variant="ghost"
+                              onClick={() => copyToClipboard(rawText)}
+                            />
+                          </HStack>
+                          </Box>
+                          <Text fontSize="xs" opacity={0.6} mt={1}>
+                            {new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                          </Text>
                         </Box>
-                        <Text fontSize="xs" opacity={0.7} mt={1}>
-                          {new Date(message.created_at).toLocaleTimeString('ko-KR', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </Text>
-                      </Box>
-                    </Flex>
-                  ))}
+                      </HStack>
+                    );
+                  })}
                   <div ref={messagesEndRef} />
                 </VStack>
               </Box>
@@ -1331,7 +1453,45 @@ const RecommendationChat = () => {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+      <AlertDialog
+        isOpen={isDeleteOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={() => {
+          setIsDeleteOpen(false);
+          setDeletingId(null);
+        }}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              추천 삭제
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              이 추천을 삭제할까요? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={() => {
+                setIsDeleteOpen(false);
+                setDeletingId(null);
+              }}>
+                취소
+              </Button>
+              <Button
+                colorScheme="red"
+                ml={3}
+                isLoading={!deletingId}
+                onClick={() => deletingId && handleDeleteRecommendation(deletingId)}
+              >
+                삭제
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Flex>
+    
   );
 };
 

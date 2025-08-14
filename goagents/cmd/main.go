@@ -6,7 +6,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	api "github.com/sdkim96/dashboard/apis"
 )
+
+type RecommendRequest struct {
+	Query       string `json:"query"`
+	UserContext string `json:"user_context"`
+}
 
 func main() {
 	r := gin.Default()
@@ -15,6 +21,25 @@ func main() {
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",
+		})
+	})
+
+	r.POST("/api/v1/recommend/agents", func(c *gin.Context) {
+		var req RecommendRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		agents, err := api.RecommendAgents(req.Query, req.UserContext)
+		if err != nil {
+			c.JSON(500, gin.H{"message": "Failed to recommend agents", "error": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"message": "Agents recommended successfully",
+			"agents":  agents,
 		})
 	})
 

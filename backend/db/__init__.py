@@ -8,12 +8,14 @@ def init_db():
     from backend.db.conversations_tables import create_conversations_all
     from backend.db.user_tables import create_user_all
     from backend.db.recommendation_tables import create_recommendations_all
+    from backend.db.rag_tables import create_rag_all
 
     create_agent_all(engine)
     create_tool_all(engine)
     create_conversations_all(engine)
     create_user_all(engine)
     create_recommendations_all(engine)
+    create_rag_all(engine)
 
 
 def drop_all():
@@ -26,9 +28,11 @@ def drop_all():
     from backend.db.conversations_tables import drop_conversations_all
     from backend.db.user_tables import drop_user_all
     from backend.db.recommendation_tables import drop_recommendations_all
+    from backend.db.rag_tables import drop_rag_all
 
     drop_agent_all(engine)
     drop_tool_all(engine)
     drop_conversations_all(engine)
     drop_user_all(engine)
     drop_recommendations_all(engine)
+    drop_rag_all(engine)

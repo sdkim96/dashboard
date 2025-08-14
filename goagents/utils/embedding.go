@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	openai "github.com/openai/openai-go"
@@ -64,7 +63,6 @@ func (s *OpenAIEmbeddingStore) EmbedBatch(texts []string) map[string][]float64 {
 	for embedding := range vectorCh {
 		for k, v := range embedding {
 			results[k] = v
-			fmt.Println("Text:", k, "Embedding:", v)
 		}
 	}
 

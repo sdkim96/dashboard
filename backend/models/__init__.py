@@ -52,4 +52,5 @@ from backend.models.api import (
     GetRecommendationConversationResponse,
     PostRecommendationCompletionRequest,
     GetConversationByRecommendationRequest,
+    DeleteRecommendationResponse
 )

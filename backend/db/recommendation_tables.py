@@ -35,6 +35,10 @@ class Recommendation(RecommendationsBase):
     work_details: Mapped[str] = mapped_column(
         doc="Detailed information about the work associated with the recommendation."
     )
+    is_deleted: Mapped[bool] = mapped_column(
+        default=False,
+        doc="Indicates whether the recommendation has been deleted."
+    )
 
     created_at: Mapped[dt.datetime] = mapped_column()
     updated_at: Mapped[dt.datetime] = mapped_column()

@@ -275,3 +275,47 @@ async def get_conversation_by_recommendation(
     )
 
 
+
+@RECOMMENDATIONS.delete(
+    path="/{recommendation_id}", 
+    summary="Delete Recommendation",
+    description=""" 
+## Delete a recommendation by its ID.
+This endpoint allows users to delete a recommendation by providing its ID.
+""",
+    response_model=mdl.DeleteRecommendationResponse
+)
+def delete_recommendation(
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
+    recommendation_id: str,
+) -> mdl.DeleteRecommendationResponse:
+    """
+    Delete a recommendation by its ID.
+
+    Args:
+        session (Session): Database session dependency.
+        user_profile (mdl.User): The profile of the current user.
+        recommendation_id (str): The ID of the recommendation to delete.
+
+    Returns:
+        mdl.Recommendation: The deleted recommendation.
+    """
+    err = svc.delete_recommendation(
+        session=session,
+        user_profile=user_profile,
+        recommendation_id=recommendation_id,
+        request_id=request_id
+    )
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete recommendation: {err}"
+        )
+    return mdl.DeleteRecommendationResponse(
+        request_id=request_id,
+        message="Recommendation deleted successfully.",
+        recommendation_id=recommendation_id
+    )
+

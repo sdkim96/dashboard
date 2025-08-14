@@ -12,6 +12,7 @@ import (
 	"github.com/openai/openai-go"
 	opt "github.com/openai/openai-go/option"
 	utl "github.com/sdkim96/dashboard/utils"
+	providers "github.com/sdkim96/dashboard/utils/providers"
 
 	"github.com/joho/godotenv"
 )
@@ -41,7 +42,7 @@ func TestInit(t *testing.T) {
 	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
 	cache := utl.NewVectorCache()
 	rg := registry.NewESRegistry(ESClient, "agents")
-	ai := registry.NewAIClient(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ai := providers.NewOpenAIProvider(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
 	ctx := context.Background()
 
 	// Initialize the search engine
@@ -51,7 +52,83 @@ func TestInit(t *testing.T) {
 		cache,
 		ai,
 	)
-	err = searchEngine.RegisterAgent(
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(errChan)
+		errChan <- searchEngine.RegisterAgent(
+			ctx,
+			"agent-123",
+			1,
+			"This is a test agent description.",
+			registry.WithAgentName("Test Agent"),
+			registry.WithAgentDepartmentName("Engineering"),
+			registry.WithAgentPrompt("What can you do?"),
+			registry.WithAgentTags([]string{"test", "agent"}),
+		)
+	}()
+
+	go func() {
+		err = <-errChan
+	}()
+	if err != nil {
+		t.Fatalf("Error registering agent: %s", err)
+	}
+	searchEngine.Search(
+		context.Background(),
+		"test query",
+	)
+
+	if searchEngine == nil {
+		t.Error("Expected search engine to be initialized, but it was nil")
+	}
+}
+
+const TestIndexName = "test_agents"
+
+func loadEnv() error {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	projectDir := filepath.Join(currentDir, "..", "..")
+	return godotenv.Load(projectDir + "/.env")
+}
+
+func TestBatch(t *testing.T) {
+	err := loadEnv()
+	if err != nil {
+		t.Fatalf("Error loading .env file: %s", err)
+	}
+
+	OpenAIClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	ESClient, err := es.NewClient(
+		es.Config{
+			Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
+			APIKey:    os.Getenv("ELASTICSEARCH_API_KEY"),
+		},
+	)
+	if err != nil {
+		t.Fatalf("Error creating Elasticsearch client: %s", err)
+	}
+	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
+	cache := utl.NewVectorCache()
+	rg := registry.NewESRegistry(ESClient, "agents")
+	ai := providers.NewOpenAIProvider(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ctx := context.Background()
+
+	// Initialize the search engine
+	engine := registry.Init(
+		rg,
+		embeddingStore,
+		cache,
+		ai,
+	)
+
+	go func() {
+
+	}()
+	engine.RegisterAgent(
 		ctx,
 		"agent-123",
 		1,
@@ -61,16 +138,50 @@ func TestInit(t *testing.T) {
 		registry.WithAgentPrompt("What can you do?"),
 		registry.WithAgentTags([]string{"test", "agent"}),
 	)
-	if err != nil {
-		t.Fatalf("Error registering agent: %s", err)
-	}
-	searchEngine.Search(
-		context.Background(),
-		"test query",
-		5,
-	)
 
-	if searchEngine == nil {
-		t.Error("Expected search engine to be initialized, but it was nil")
+}
+
+func TestSearchEngine(t *testing.T) {
+	err := loadEnv()
+	if err != nil {
+		t.Fatalf("Error loading .env file: %s", err)
+	}
+
+	OpenAIClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	ESClient, err := es.NewClient(
+		es.Config{
+			Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
+			APIKey:    os.Getenv("ELASTICSEARCH_API_KEY"),
+		},
+	)
+	if err != nil {
+		t.Fatalf("Error creating Elasticsearch client: %s", err)
+	}
+	embeddingStore := utl.NewOpenAIEmbeddingStore(&OpenAIClient)
+	cache := utl.NewVectorCache()
+	rg := registry.NewESRegistry(ESClient, "agents")
+	ai := providers.NewOpenAIProvider(&OpenAIClient, "You are a helpful assistant that provides information about agents.")
+	ctx := context.Background()
+
+	engine := registry.Init(
+		rg,
+		embeddingStore,
+		cache,
+		ai,
+	)
+	cards, err := engine.Search(
+		ctx,
+		"다시 작성해줄래?",
+		registry.WithUserContext("유저는 지쳐서 휴가를 원합니다. 필요한 정보는 휴가 신청서나, 휴가 기안문, 회사 내부 정책, 인수인계 등입니다."),
+	)
+	if err != nil {
+		t.Fatalf("Error searching agents: %s", err)
+	}
+	if len(cards) == 0 {
+		t.Error("Expected to find at least one agent, but found none")
+	} else {
+		for _, card := range cards {
+			t.Logf("Found agent: %s - %s", card.ID, card.Description)
+		}
 	}
 }

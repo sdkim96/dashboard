@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -13,6 +14,55 @@ import (
 )
 
 const IndexDefinition = `{
+	"settings": {
+		"analysis": {
+			"analyzer": {
+				"korean_analyzer": {
+					"type": "custom",
+					"tokenizer": "nori_tokenizer",
+					"filter": [
+						"nori_readingform",
+						"lowercase",
+						"nori_stop_filter"
+					]
+				},
+				"korean_search_analyzer": {
+					"type": "custom",
+					"tokenizer": "nori_tokenizer",
+					"filter": [
+						"nori_readingform",
+						"lowercase",
+						"nori_stop_filter"
+					]
+				}
+			},
+			"tokenizer": {
+				"nori_tokenizer": {
+					"type": "nori_tokenizer",
+					"decompound_mode": "mixed"
+				}
+			},
+			"filter": {
+				"nori_stop_filter": {
+					"type": "nori_part_of_speech",
+					"stoptags": [
+						"SP",
+						"SSC",
+						"SSO",
+						"SC",
+						"SE",
+						"XPN",
+						"XSA",
+						"XSN",
+						"XSV",
+						"UNA",
+						"NA",
+						"VSV"
+					]
+				}
+			}
+		}
+	},
 	"mappings": {
 		"properties": {
 			"id": {"type": "keyword"},
@@ -20,26 +70,52 @@ const IndexDefinition = `{
 			"agent_version": {"type": "integer"},
 			"name": {
 				"type": "text",
+				"analyzer": "korean_analyzer",
+				"search_analyzer": "korean_search_analyzer",
 				"fields": {
 					"keyword": {"type": "keyword"}
 				}
 			},
-			"department_name": {"type": "keyword"},
-			"description": {"type": "text"},
+			"department_name": {
+				"type": "keyword",
+				"fields": {
+					"korean": {
+						"type": "text",
+						"analyzer": "korean_analyzer"
+					}
+				}
+			},
+			"description": {
+				"type": "text",
+				"analyzer": "korean_analyzer",
+				"search_analyzer": "korean_search_analyzer"
+			},
 			"description_vector": {
 				"type": "dense_vector",
 				"dims": 1536,
 				"index": true,
 				"similarity": "cosine"
 			},
-			"prompt": {"type": "text"},
+			"prompt": {
+				"type": "text",
+				"analyzer": "korean_analyzer",
+				"search_analyzer": "korean_search_analyzer"
+			},
 			"prompt_vector": {
 				"type": "dense_vector",
 				"dims": 1536,
 				"index": true,
 				"similarity": "cosine"
 			},
-			"tags": {"type": "keyword"},
+			"tags": {
+				"type": "keyword",
+				"fields": {
+					"korean": {
+						"type": "text",
+						"analyzer": "korean_analyzer"
+					}
+				}
+			},
 			"created_at": {"type": "date"},
 			"updated_at": {"type": "date"}
 		}
@@ -66,6 +142,30 @@ type AgentCardCreate struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
+// **Private function**
+//
+// isIndexExists checks if the index exists in Elasticsearch.
+func (s *ESRegistry) isIndexExists(ctx context.Context) (bool, error) {
+	resp, err := esapi.IndicesExistsRequest{
+		Index: []string{s.Indexname},
+	}.Do(ctx, s.Client)
+	if err != nil {
+		return false, fmt.Errorf("error checking if index exists: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return false, nil
+	}
+	if resp.IsError() {
+		return false, fmt.Errorf("error checking if index exists: %s", resp.String())
+	}
+	if resp.StatusCode == 200 {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+}
+
 func NewESRegistry(client *es.Client, indexname string) *ESRegistry {
 	return &ESRegistry{
 		Client:    client,
@@ -73,28 +173,30 @@ func NewESRegistry(client *es.Client, indexname string) *ESRegistry {
 	}
 }
 
-func (rg *ESRegistry) CreateIndex(
+func (rg *ESRegistry) CreateIndexIfNotExists(
 	ctx context.Context,
 	definition string,
 ) error {
+
+	exists, err := rg.isIndexExists(ctx)
+	if err != nil {
+		return fmt.Errorf("error checking if index exists: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
 	resp, err := esapi.IndicesCreateRequest{
 		Index: rg.Indexname,
 		Body:  strings.NewReader(definition),
 	}.Do(ctx, rg.Client)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating index: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.IsError() {
 		return fmt.Errorf("error creating index: %s", resp.String())
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-	if resp.StatusCode == 200 {
-		fmt.Println("Index created successfully")
-	}
-
 	return nil
 }
 
@@ -173,34 +275,102 @@ func (rg *ESRegistry) GetAgentCard(ctx context.Context, id string) (*AgentCard, 
 
 func (rg *ESRegistry) Search(
 	ctx context.Context,
-	query string,
+	search *AgentCardHybridSearch,
+	descriptionVector []float64,
+	promptVector []float64,
 ) ([]*AgentCard, error) {
-	resp, err := esapi.SearchRequest{
-		Index: []string{rg.Indexname},
-		Body:  strings.NewReader(query),
-	}.Do(ctx, rg.Client)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.IsError() {
-		return nil, fmt.Errorf("error searching agent cards: %s", resp.String())
+
+	query := map[string]interface{}{
+		"size": search.TopK,
+		"query": map[string]interface{}{
+			"script_score": map[string]interface{}{
+				"query": map[string]interface{}{
+					"bool": map[string]interface{}{
+						"should": []interface{}{
+							map[string]interface{}{
+								"match": map[string]interface{}{
+									"description": map[string]interface{}{
+										"query": search.QueryRewrited,
+										"boost": search.Boost.QueryRewrited,
+									},
+								},
+							},
+							map[string]interface{}{
+								"match": map[string]interface{}{
+									"prompt": map[string]interface{}{
+										"query": search.QueryRewrited,
+										"boost": search.Boost.QueryRewrited,
+									},
+								},
+							},
+							map[string]interface{}{
+								"terms": map[string]interface{}{
+									"tags": search.Tags,
+								},
+							},
+							map[string]interface{}{
+								"exists": map[string]interface{}{
+									"field": "description_vector",
+								},
+							},
+						},
+						"minimum_should_match": 1,
+					},
+				},
+				"script": map[string]interface{}{
+					"source": `
+						double descScore = cosineSimilarity(params.descVector, 'description_vector') * params.descBoost;
+						double promptScore = cosineSimilarity(params.promptVector, 'prompt_vector') * params.promptBoost;
+						return descScore + promptScore + _score + 1.0;
+					`,
+					"params": map[string]interface{}{
+						"descVector":   descriptionVector,
+						"promptVector": promptVector,
+						"descBoost":    search.Boost.QueryRewrited,
+						"promptBoost":  search.Boost.QueryRewrited,
+					},
+				},
+			},
+		},
 	}
 
-	var result struct {
+	queryMarshaled, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling query: %w", err)
+	}
+	body := bytes.NewReader(queryMarshaled)
+
+	res, err := rg.Client.Search(
+		rg.Client.Search.WithContext(ctx),
+		rg.Client.Search.WithIndex(rg.Indexname),
+		rg.Client.Search.WithBody(body),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("es search: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return nil, fmt.Errorf("search error: %s", res.String())
+	}
+
+	var r struct {
 		Hits struct {
 			Hits []struct {
-				Source AgentCard `json:"_source"`
+				Source *AgentCard `json:"_source"`
 			} `json:"hits"`
 		} `json:"hits"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error decoding search response: %s", err)
+	dataRead, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+	json.Unmarshal(dataRead, &r)
+
+	agentCards := make([]*AgentCard, 0, len(r.Hits.Hits))
+	for _, hit := range r.Hits.Hits {
+		agentCards = append(agentCards, hit.Source)
 	}
 
-	cards := make([]*AgentCard, len(result.Hits.Hits))
-	for i, hit := range result.Hits.Hits {
-		cards[i] = &hit.Source
-	}
-	return cards, nil
+	return agentCards, nil
 }
