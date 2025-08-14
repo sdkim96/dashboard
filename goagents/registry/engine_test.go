@@ -51,24 +51,16 @@ func TestInit(t *testing.T) {
 		cache,
 		ai,
 	)
-	errChan := make(chan error, 1)
-
-	go func() {
-		errChan <- searchEngine.RegisterAgent(
-			ctx,
-			"agent-123",
-			1,
-			"This is a test agent description.",
-			registry.WithAgentName("Test Agent"),
-			registry.WithAgentDepartmentName("Engineering"),
-			registry.WithAgentPrompt("What can you do?"),
-			registry.WithAgentTags([]string{"test", "agent"}),
-		)
-	}()
-
-	go func() {
-		err = <-errChan
-	}()
+	err = searchEngine.RegisterAgent(
+		ctx,
+		"agent-123",
+		1,
+		"This is a test agent description.",
+		registry.WithAgentName("Test Agent"),
+		registry.WithAgentDepartmentName("Engineering"),
+		registry.WithAgentPrompt("What can you do?"),
+		registry.WithAgentTags([]string{"test", "agent"}),
+	)
 	if err != nil {
 		t.Fatalf("Error registering agent: %s", err)
 	}

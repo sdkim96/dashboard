@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	openai "github.com/openai/openai-go"
@@ -49,7 +50,7 @@ func (s *SearchEngine) RegisterAgent(
 	opt ...func(*AgentCardCreate) *AgentCardCreate,
 ) error {
 
-	ID := agentID + "-" + string(agentVersion)
+	ID := agentID + "-" + strconv.Itoa(agentVersion)
 	embedTarget := make([]string, 0, 2)
 
 	agentCard := &AgentCardCreate{
