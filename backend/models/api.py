@@ -14,6 +14,7 @@ from backend.models.conversations import ConversationMaster
 from backend.models.message import MessageRequest, MessageResponse, Content
 from backend.models.tools import Tool, ToolMaster, ToolRequest
 from backend.models.recommendations import RecommendationMaster, Recommendation
+from backend.models.files import File
 
 class BaseRequest(BaseModel):
     pass
@@ -563,4 +564,45 @@ class DeleteRecommendationResponse(BaseResponse):
             message="Recommendation deleted successfully.",
             request_id=str(uuid.uuid4()),
             recommendation_id=str(uuid.uuid4())
+        )
+    
+
+
+class PostFileUploadResponse(BaseResponse):
+    """
+    POST /api/v1/file/upload Response model
+    """
+    file_id: str = Field(
+        ...,
+        description="ID of the uploaded file.",
+        examples=[str(uuid.uuid4())]
+    )
+
+    @classmethod
+    def mock(cls) -> "PostFileUploadResponse":
+        return cls(
+            status="success",
+            message="File uploaded successfully.",
+            request_id=str(uuid.uuid4()),
+            file_id=str(uuid.uuid4())
+        )
+    
+
+class GetFilesResponse(BaseResponse):
+    """
+    GET /api/v1/files Response model
+    """
+    files: List[File] = Field(
+        default_factory=list,
+        description="List of files uploaded by the user.",
+        examples=[File.mock()]
+    )
+
+    @classmethod
+    def mock(cls) -> "GetFilesResponse":
+        return cls(
+            status="success",
+            message="Files retrieved successfully.",
+            request_id=str(uuid.uuid4()),
+            files=[File.mock()]
         )

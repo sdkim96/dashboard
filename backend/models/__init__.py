@@ -30,6 +30,9 @@ from backend.models.tools import (
     Tool,
     ToolMaster
 )
+from backend.models.files import (
+    File
+)
 from backend.models.api import (
     BaseRequest, 
     BaseResponse, 
@@ -52,5 +55,7 @@ from backend.models.api import (
     GetRecommendationConversationResponse,
     PostRecommendationCompletionRequest,
     GetConversationByRecommendationRequest,
-    DeleteRecommendationResponse
+    DeleteRecommendationResponse,
+    PostFileUploadResponse,
+    GetFilesResponse
 )

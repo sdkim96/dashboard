@@ -7,6 +7,8 @@ from openai.types.chat import ChatCompletion
 
 from agents.internal.search_engine import BaseSearchEngine
 
+
+
 ProviderT = TypeVar("ProviderT", bound=OpenAI | Anthropic)
 AsyncProviderT = TypeVar("AsyncProviderT", bound=AsyncOpenAI | AsyncAnthropic)
 

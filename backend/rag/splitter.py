@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List
 
 def split_by_header(
     text: str,
@@ -33,12 +33,10 @@ def split_by_header(
             
             sections.append(current_section.strip())
             current_section = ""
-            continue
-
+            
         current_section += line + "\n"
     
-    if len(sections) == 0 and current_section.strip():
-        sections.append(current_section.strip())
+    sections.append(current_section.strip())
     
     return sections
         

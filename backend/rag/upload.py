@@ -1,6 +1,6 @@
 import io
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Generator
+from typing import Any, AsyncGenerator, Tuple, BinaryIO
 
 from azure.storage.blob.aio import ContainerClient
 
@@ -35,9 +35,10 @@ async def get_blob(
         await container_client.close()
 
 async def upload_file(
-    file_stream: io.BytesIO,
-    file_name: str
-) -> str:
+    file_stream: io.BytesIO | BinaryIO,
+    file_name: str,
+    file_extension: str = ".txt"
+) -> Tuple[str, Exception | None]:
     """
     Asynchronously uploads a file to Azure Blob Storage.
     
@@ -46,9 +47,13 @@ async def upload_file(
         file_name (str): The name of the file to be uploaded.
     
     Returns:
-        str: The URL of the uploaded blob.
+        Tuple[str, Exception | None]: The URL of the uploaded blob or an error.
     """
-    async with get_blob() as container_client:
-        blob_client = container_client.get_blob_client(f"{RAG_PATH}/{file_name}")
-        await blob_client.upload_blob(file_stream, overwrite=True)
-        return blob_client.url
+    try:
+        async with get_blob() as container_client:
+            blob_client = container_client.get_blob_client(f"{RAG_PATH}/{file_name}.{file_extension}")
+            await blob_client.upload_blob(file_stream, overwrite=True)
+            endpoint = blob_client.url
+    except Exception as e:
+            return "", e
+    return endpoint, None

@@ -15,6 +15,8 @@ class APIPrefix(enum.Enum):
     COMPLETION = PROJECT_API_ENDPOINT + "/completion"
     RECOMMENDATIONS = PROJECT_API_ENDPOINT + "/recommendations"
     TOOLS = PROJECT_API_ENDPOINT + "/tools"
+    FILES = PROJECT_API_ENDPOINT + "/files"
+    
 
 class APITag(enum.Enum):
     """
@@ -28,3 +30,4 @@ class APITag(enum.Enum):
     COMPLETION = "completion"
     RECOMMENDATIONS = "recommendations"
     TOOLS = "tools"
+    FILES = "files"

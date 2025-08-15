@@ -4,10 +4,10 @@ from typing import Optional
 from sqlalchemy import Engine, Index
 from sqlalchemy.orm import mapped_column, DeclarativeBase, Mapped
 
-class RAGBase(DeclarativeBase):
+class FileBase(DeclarativeBase):
     pass
 
-class File(RAGBase):
+class File(FileBase):
     __tablename__ = 'file'
 
     file_id: Mapped[str] = mapped_column(
@@ -26,19 +26,11 @@ class File(RAGBase):
     file_extension: Mapped[str] = mapped_column(
         doc="The file extension of the document, e.g., 'pdf', 'docx'."
     )
-    effective_from: Mapped[dt.datetime] = mapped_column(
-        default=dt.datetime.now,
-        doc="The timestamp when the file became effective in the system."
-    )
-    effective_to: Mapped[dt.datetime] = mapped_column(
-        default=None,
-        doc="The timestamp when the file is no longer effective. It can be None if the file is currently effective."
+    file_content_type: Mapped[str] = mapped_column(
+        doc="The MIME type of the file, e.g., 'application/pdf', 'text/plain'."
     )
     author_id: Mapped[str] = mapped_column(
         doc="The ID of the user who uploaded the file. It is a foreign key to the user table."
-    )
-    department_name: Mapped[str] = mapped_column(
-        doc="The department associated with the file. It is used to categorize files by department."
     )
     is_deleted: Mapped[bool] = mapped_column(
         default=False,
@@ -54,7 +46,7 @@ class File(RAGBase):
     )
     
 
-class Document(RAGBase):
+class Document(FileBase):
     __tablename__ = 'document'
 
     document_id: Mapped[str] = mapped_column(
@@ -65,8 +57,8 @@ class Document(RAGBase):
         doc="Foreign key referencing the file this document belongs to."
     )
 
-def create_rag_all(engine: Engine):
-    RAGBase.metadata.create_all(engine)
+def create_file_all(engine: Engine):
+    FileBase.metadata.create_all(engine)
 
-def drop_rag_all(engine: Engine):
-    RAGBase.metadata.drop_all(engine)
+def drop_file_all(engine: Engine):
+    FileBase.metadata.drop_all(engine)
