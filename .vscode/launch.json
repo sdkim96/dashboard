@@ -8,7 +8,7 @@
             "name": "Python Debugger: Module",
             "type": "debugpy",
             "request": "launch",
-            "module": "backend.rag.test"
+            "module": "backend.rag.vectorstore"
         },
         {
             "name": "Python Debugger: FastAPI",

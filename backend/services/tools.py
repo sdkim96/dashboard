@@ -25,7 +25,6 @@ def get_available_tools(
     )
     
     Tool = tbl.Tool
-    Subscriber = tbl.ToolSubscriber
     User = user_tbl.User
 
     stmt = (
@@ -34,17 +33,8 @@ def get_available_tools(
             Tool.tool_name,
             User.username.label("author_name"),
             Tool.icon_link,
-            func.count(func.distinct(Subscriber.user_id)).label("subscriber_count"),
             Tool.created_at,
             Tool.updated_at,
-            func.coalesce(
-                func.bool_or(Subscriber.user_id == user_profile.user_id),
-                False
-            ).label("is_subscribed"),
-        )
-        .outerjoin(
-            Subscriber,
-            Tool.tool_id == Subscriber.tool_id
         )
         .outerjoin(
             User,
@@ -81,10 +71,8 @@ def get_available_tools(
             tool_name=row.tool_name,
             author_name=row.author_name,
             icon_link=row.icon_link,
-            subscriber_count=row.subscriber_count,
             created_at=row.created_at,
             updated_at=row.updated_at,
-            is_subscribed=row.is_subscribed,
         )
         for row in results
     ]
@@ -107,15 +95,7 @@ def get_tool_by_id(
     )
     
     Tool = tbl.Tool
-    Subscriber = tbl.ToolSubscriber
     User = user_tbl.User
-
-    subscriber_count_subq = (
-        select(func.count())
-        .select_from(Subscriber)
-        .where(Subscriber.tool_id == tool_id)
-        .scalar_subquery()
-    )
     
     stmt = (
         select(
@@ -126,15 +106,8 @@ def get_tool_by_id(
             Tool.created_at,
             Tool.updated_at,
             Tool.description,
-            (Subscriber.tool_id.is_not(None)).label("is_subscribed"),
-            subscriber_count_subq.label("subscriber_count")
         )
         .join(User, Tool.author_id == User.user_id)
-        .outerjoin(
-            Subscriber, 
-            (Subscriber.tool_id == Tool.tool_id) & 
-            (Subscriber.user_id == user_profile.user_id)
-        )
         .where(
             Tool.is_deleted == False,
             Tool.tool_id == tool_id
@@ -156,8 +129,6 @@ def get_tool_by_id(
         tool_name=result.tool_name,
         author_name=result.author_name,
         icon_link=result.icon_link,
-        subscriber_count=result.subscriber_count,
-        is_subscribed=result.is_subscribed,
         description=result.description,
         created_at=result.created_at,
         updated_at=result.updated_at,
@@ -169,46 +140,33 @@ def get_tool_by_id(
     return tool, None
 
 
-def subscribe_tool(
-    session: Session,
-    request_id: str,
-    user: mdl.User,
-    tool_id: str,
-) -> Tuple[bool, Exception | None]:
-    
-    lg.logger.info(
-        f"Request ID: {request_id}, Username: {user.username}, Tool ID: {tool_id}"
-    )
-    
-    Tool = tbl.Tool
-    Subscriber = tbl.ToolSubscriber
 
+def get_tools_by_ids(
+    session: Session,
+    tool_ids: List[str],
+) -> Tuple[List[mdl.Tool], Exception | None]:
+
+    Tool = tbl.Tool
+    User = user_tbl.User
+
+    stmt = (
+        select(
+            Tool.tool_id,
+            Tool.tool_name,
+            Tool.description,
+            User.username.label("author_name"),
+            Tool.icon_link,
+            Tool.created_at,
+            Tool.updated_at,
+        )
+        .join(User, Tool.author_id == User.user_id)
+        .where(Tool.tool_id.in_(tool_ids))
+    )
     try:
-        stmt = (
-            select(Tool)
-            .where(Tool.tool_id == tool_id, Tool.is_deleted == False)
-        )
-        tool = session.execute(stmt).scalar_one_or_none()
-        
-        if not tool:
-            lg.logger.warning(f"Tool with ID {tool_id} not found for subscription.")
-            return False, None
-        
-        new_subscription = Subscriber(
-            tool_id=tool_id,
-            user_id=user.user_id,
-            created_at=dt.datetime.now()
-        )
-        
-        session.add(new_subscription)
-        session.commit()
-        
-        lg.logger.info(
-            f"User {user.username} subscribed to tool {tool.tool_name} with ID {tool.tool_id}."
-        )
-        return True, None
-    
+        result = session.execute(stmt).mappings().all()
     except Exception as e:
-        session.rollback()
-        lg.logger.error(f"Error subscribing to tool {tool_id}: {e}")
-        return False, e
+        return [mdl.Tool.failed()], Exception(f"Tool with ID {tool_ids} not found.: {e}")
+
+    tools = [mdl.Tool.model_validate(tool) for tool in result]
+
+    return tools, None

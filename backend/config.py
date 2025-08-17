@@ -48,6 +48,8 @@ class Config(BaseModel):
         os.getenv("OCR_API_KEY", "asdf"),
         description="API key for the Azure OCR service."
     )
+    ELASTICSEARCH_HOSTS: str = Field()
+    ELASTICSEARCH_API_KEY: str = Field()
 
 
     @property
@@ -69,5 +71,7 @@ CONFIG = Config(
     BLOB_CONNECTION_STRING=os.getenv("BLOB_CONNECTION_STRING", "dsafasdf"),
     BLOG_CONTAINER_NAME=os.getenv("BLOG_CONTAINER_NAME", "dashboard"),
     OCR_ENDPOINT=os.getenv("OCR_ENDPOINT", "wwerzcxv"),
-    OCR_API_KEY=os.getenv("OCR_API_KEY", "")
+    OCR_API_KEY=os.getenv("OCR_API_KEY", ""),
+    ELASTICSEARCH_HOSTS=os.getenv("ELASTICSEARCH_HOSTS", "http://localhost:9200"),
+    ELASTICSEARCH_API_KEY=os.getenv("ELASTICSEARCH_API_KEY", "")
 )

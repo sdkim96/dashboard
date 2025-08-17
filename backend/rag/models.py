@@ -7,7 +7,7 @@ from typing import (
 
 import elasticsearch.dsl as dsl
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class IndexFileMeta(dsl.InnerDoc):
     file_id = dsl.Keyword()
@@ -39,6 +39,8 @@ class Index(dsl.AsyncDocument):
 
 
 class PageMeta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     number: int = Field(
         ...,
         description="Page number of the document."
@@ -69,6 +71,7 @@ class PageMeta(BaseModel):
         )
 
 class FileMeta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     file_id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
@@ -128,6 +131,7 @@ class FileMeta(BaseModel):
 
 
 class Document(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     document_id: str = Field(
         ...,
         description="Unique identifier for the document, typically a UUID."
@@ -154,6 +158,8 @@ class Document(BaseModel):
     updated_at: dt.datetime = Field(
         default_factory=dt.datetime.now
     )
+
+
     @classmethod
     def get_es_definition(cls) -> type[Index]:
         return Index
@@ -170,6 +176,22 @@ class Document(BaseModel):
             created_at=self.created_at, # type: ignore
             updated_at=self.updated_at # type: ignore
         ) 
+    
+    def to_desription(self) -> str:
+        return f"""
+---
+문서 태그: {", ".join(self.tags)}
+원본 파일 이름: {self.file_meta.file_name}
+원본 파일 설명: {self.file_meta.file_description}
+원본 파일 다운로드 링크: {self.file_meta.file_path}
+원본 파일 유효기간 {self.file_meta.effective_from} 부터 {self.file_meta.effective_to} 까지
+원본 파일 저자: {self.file_meta.author}
+원본 파일 부서: {self.file_meta.department}
+<{self.page_meta.number} / {self.page_meta.total_pages}> 쪽
+---
+
+{self.content}
+        """
 
 class SearchFilter(BaseModel):
     top_k: int = Field(
@@ -191,6 +213,4 @@ class SearchFilter(BaseModel):
         description="List of tags to filter the search results."
     )
 
-
-
-DocumentT = TypeVar("DocumentT", bound="Document")
+DocumentT = TypeVar("DocumentT", bound=Document)

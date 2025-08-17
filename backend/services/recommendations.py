@@ -22,7 +22,7 @@ from agents.registry import AgentRegistry
 import backend.config as cfg
 import backend.utils.logger as lg
 from backend.utils.history import get_history, set_history
-from backend.utils.agent_spec import get_agent_spec
+from backend.utils.specs import get_agent_spec
 from backend.utils.streamer import chunk
 
 class AnalyzedContext(BaseModel):
@@ -562,7 +562,8 @@ async def chat_completion_with_agent(
         user_id=user_profile.user_id,
         conversation_id=body.conversation_id,
         request_id=request_id,
-        conversation_type='recommendation'
+        conversation_type='recommendation',
+        parent_message_id=body.parent_message_id
     )
     yield await chunk(
         event="status", 

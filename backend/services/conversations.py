@@ -1,13 +1,10 @@
-import datetime as dt
-import json
-import uuid
 from typing import List, Optional, Tuple
 
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, and_
 from sqlalchemy.orm import Session
 
 import backend.models as mdl
-import backend.db.user_tables as user_tbl
+import backend.db.tools_tables as tl_tbl
 import backend.db.conversations_tables as tbl
 import backend.utils.logger as lg
 import backend._types as t
@@ -111,15 +108,17 @@ def get_messages(
     Conversation = tbl.Conversation
     Message = tbl.Message
     LLM = tbl.LLMIssuer
+    ToolResult = tl_tbl.ToolResult
 
     stmt = (
         select(
             Message.message_id,
             Message.content,
             Message.role,
-            Message.agent_id,
             Message.llm_deployment_id,
             Message.parent_message_id,
+            ToolResult.tool_id,
+            ToolResult.output.label("tool_result"),
             Message.created_at.label("message_created_at"),
             Message.updated_at.label("message_updated_at"),
             LLM.issuer,
@@ -134,6 +133,14 @@ def get_messages(
         .join(
             LLM,
             LLM.deployment_id == Message.llm_deployment_id,
+            isouter=True
+        )
+        .join(
+            ToolResult,
+            and_(
+                ToolResult.conversation_id == Message.conversation_id,
+                ToolResult.message_id == Message.message_id,
+            ),
             isouter=True
         )
         .where(
@@ -174,9 +181,9 @@ def get_messages(
                     parts=content.parts
                 ),
                 role=msg.role,
-                agent_id=msg.agent_id,
                 llm=llm,
-                tool_id=None,
+                tool_id=msg.tool_id,
+                tool_result=msg.tool_result,
                 parent_message_id=msg.parent_message_id,
                 updated_at=msg.message_updated_at,
                 created_at=msg.message_created_at

@@ -25,7 +25,6 @@ import {
   type ConversationMaster,
   type MessageResponse,
   type LlmModel,
-  type Agent
 } from '../client';
 
 interface ConversationWindowProps {
@@ -36,7 +35,6 @@ interface ConversationWindowProps {
   message: string;
   messagesLoading: boolean;
   sendingMessage: boolean;
-  selectedAgent: Agent | null;
   selectedModel: LlmModel | null;
   onOpenSidebar: () => void;
   onMessageChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -53,7 +51,6 @@ const ConversationWindow: React.FC<ConversationWindowProps> = ({
   message,
   messagesLoading,
   sendingMessage,
-  selectedAgent,
   selectedModel,
   onOpenSidebar,
   onMessageChange,
@@ -98,11 +95,6 @@ const ConversationWindow: React.FC<ConversationWindowProps> = ({
         
         {/* 현재 선택된 설정만 간단히 표시 */}
         <HStack spacing={2}>
-          {selectedAgent && (
-            <Badge size="sm" colorScheme="green" variant="outline">
-              {selectedAgent.name}
-            </Badge>
-          )}
           {selectedModel && (
             <Badge size="sm" colorScheme="blue" variant="outline">
               {selectedModel.deployment_id}

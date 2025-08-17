@@ -20,8 +20,8 @@ function App() {
           switch(activeTab) {
             case 'marketplace':
               return <MarketplaceView />
-            // case 'chat':
-            //   return <ChatView />
+            case 'chat':
+              return <ChatView />
             case 'recommendations':
               return <RecommendationsView />
             default:

@@ -67,7 +67,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
           />
         </Tooltip>
         
-        {/* <Tooltip label="Chat" placement="right" hasArrow>
+        <Tooltip label="Chat" placement="right" hasArrow>
           <IconButton
             aria-label="Chat"
             icon={<HiChat size={20} />}
@@ -88,7 +88,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
             }}
             onClick={() => onTabChange('chat')}
           />
-        </Tooltip> */}
+        </Tooltip>
       </VStack>
     </Box>
   )

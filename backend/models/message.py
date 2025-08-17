@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 import uuid
 
 from typing import List
@@ -39,15 +40,15 @@ class MessageResponse(BaseModel):
         description="ID of the parent message, if this message is a reply.",
         examples=["parent-message-123"]
     )
-    agent_id: str | None = Field(
-        None,
-        description="ID of the agent that sent the message, if applicable.",
-        examples=["agent-123"]
-    )
     tool_id: str | None = Field(
         None,
         description="ID of the tool that sent the message, if applicable.",
         examples=["tool-123"]
+    )
+    tool_result: str | None = Field(
+        None,
+        description="Result of the tool used to generate the message, if applicable.",
+        examples=["tool-result-123"]
     )
     role: t.MessageRoleLiteral = Field(
         ...,
@@ -80,8 +81,8 @@ class MessageResponse(BaseModel):
         return cls(
             message_id=str(uuid.uuid4()),
             parent_message_id=None,
-            agent_id=None,
             tool_id=None,
+            tool_result="",
             role='user',
             content=Content(type='text', parts=["Mock message content"]),
             llm=LLMModel.mock(),
@@ -104,10 +105,15 @@ class Message(BaseModel):
         description="ID of the parent message, if this message is a reply.",
         examples=["parent-message-123"]
     )
-    agent_id: str | None = Field(
+    tool_id: str | None = Field(
         None,
-        description="ID of the agent that sent the message, if applicable.",
-        examples=["agent-123"]
+        description="ID of the tool that sent the message, if applicable.",
+        examples=["tool-123"]
+    )
+    tool_result: str | None = Field(
+        ...,
+        description="Result of the tool used to generate the message, if applicable.",
+        examples=["tool result"]
     )
     role: t.MessageRoleLiteral = Field(
         ...,
@@ -149,7 +155,8 @@ class Message(BaseModel):
         return cls(
             message_id=message_id,
             parent_message_id=parent_message_id,
-            agent_id=agent_id,
+            tool_id=None,
+            tool_result=None,
             role='user',
             content=content,
             llm_deployment_id=None,
@@ -162,9 +169,10 @@ class Message(BaseModel):
         cls, 
         message_id: str,
         parent_message_id: str | None,
-        agent_id: str | None,
         content: Content, 
-        llm_deployment_id: str, 
+        llm_deployment_id: str,
+        tool_id: str | None = None,
+        tool_result: str | None = None,
     ) -> 'Message':
         """
         Create an assistant message instance.
@@ -172,7 +180,8 @@ class Message(BaseModel):
         return cls(
             message_id=message_id,
             parent_message_id=parent_message_id,
-            agent_id=agent_id,
+            tool_id=tool_id,
+            tool_result=tool_result,
             role='assistant',
             content=content,
             llm_deployment_id=llm_deployment_id,

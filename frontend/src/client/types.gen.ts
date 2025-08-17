@@ -276,6 +276,16 @@ export type BaseResponse = {
 };
 
 /**
+ * Body_upload_file_api_v1_files_upload_post
+ */
+export type BodyUploadFileApiV1FilesUploadPost = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
  * Content
  * Content model for messages
  */
@@ -380,6 +390,57 @@ export type DeleteRecommendationResponse = {
      * ID of the deleted recommendation.
      */
     recommendation_id: string;
+};
+
+/**
+ * File
+ */
+export type File = {
+    /**
+     * File Id
+     * Unique identifier of the file.
+     */
+    file_id: string;
+    /**
+     * File Path
+     * Path to the file.
+     */
+    file_path: string;
+    /**
+     * File Name
+     * Name of the file.
+     */
+    file_name: string;
+    /**
+     * File Size
+     * Size of the file in bytes.
+     */
+    file_size: number;
+    /**
+     * File Extension
+     * Extension of the file.
+     */
+    file_extension: string;
+    /**
+     * File Content Type
+     * Content type of the file.
+     */
+    file_content_type: string;
+    /**
+     * Author Id
+     * ID of the user who uploaded the file.
+     */
+    author_id: string;
+    /**
+     * Created At
+     * Timestamp when the file was created.
+     */
+    created_at?: string;
+    /**
+     * Updated At
+     * Timestamp when the file was last updated.
+     */
+    updated_at?: string;
 };
 
 /**
@@ -511,6 +572,33 @@ export type GetConversationsResponse = {
      * List of conversations associated with the user.
      */
     conversations?: Array<ConversationMaster>;
+};
+
+/**
+ * GetFilesResponse
+ * GET /api/v1/files Response model
+ */
+export type GetFilesResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * Files
+     * List of files uploaded by the user.
+     */
+    files?: Array<File>;
 };
 
 /**
@@ -806,6 +894,33 @@ export type MessageResponse = {
 };
 
 /**
+ * PostFileUploadResponse
+ * POST /api/v1/file/upload Response model
+ */
+export type PostFileUploadResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * File Id
+     * ID of the uploaded file.
+     */
+    file_id: string;
+};
+
+/**
  * PostGenerateCompletionRequest
  * POST /api/v1/completion Request model
  */
@@ -948,28 +1063,6 @@ export type PostRescommendationRequest = {
 };
 
 /**
- * PostSubscribeToolResponse
- * POST /api/v1/tools/{tool_id}/subscribe Response model
- */
-export type PostSubscribeToolResponse = {
-    /**
-     * Status
-     * Status of the response, e.g., 'success' or 'error'.
-     */
-    status?: 'success' | 'error';
-    /**
-     * Message
-     * Message providing additional information about the response.
-     */
-    message?: string;
-    /**
-     * Request Id
-     * Unique identifier for the request, used for tracking and debugging.
-     */
-    request_id: string;
-};
-
-/**
  * PutModifyAgentRequest
  * POST /api/v1/agent/publish Request model
  */
@@ -1099,11 +1192,6 @@ export type Tool = {
      */
     icon_link?: string | null;
     /**
-     * Subscriber Count
-     * Number of users subscribed to this tool.
-     */
-    subscriber_count?: number;
-    /**
      * Created At
      * Timestamp when the tool was created.
      */
@@ -1113,11 +1201,6 @@ export type Tool = {
      * Timestamp when the tool was last updated.
      */
     updated_at?: string;
-    /**
-     * Is Subscribed
-     * Indicates whether the current user is subscribed to this tool.
-     */
-    is_subscribed?: boolean;
     /**
      * Description
      * Description of the tool.
@@ -1150,11 +1233,6 @@ export type ToolMaster = {
      */
     icon_link?: string | null;
     /**
-     * Subscriber Count
-     * Number of users subscribed to this tool.
-     */
-    subscriber_count?: number;
-    /**
      * Created At
      * Timestamp when the tool was created.
      */
@@ -1164,11 +1242,6 @@ export type ToolMaster = {
      * Timestamp when the tool was last updated.
      */
     updated_at?: string;
-    /**
-     * Is Subscribed
-     * Indicates whether the current user is subscribed to this tool.
-     */
-    is_subscribed?: boolean;
 };
 
 /**
@@ -1331,36 +1404,6 @@ export type GetToolByIdApiV1ToolsToolIdGetResponses = {
 
 export type GetToolByIdApiV1ToolsToolIdGetResponse = GetToolByIdApiV1ToolsToolIdGetResponses[keyof GetToolByIdApiV1ToolsToolIdGetResponses];
 
-export type SubscribeToolApiV1ToolsToolIdSubscribePostData = {
-    body?: never;
-    path: {
-        /**
-         * Tool Id
-         */
-        tool_id: string;
-    };
-    query?: never;
-    url: '/api/v1/tools/{tool_id}/subscribe';
-};
-
-export type SubscribeToolApiV1ToolsToolIdSubscribePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type SubscribeToolApiV1ToolsToolIdSubscribePostError = SubscribeToolApiV1ToolsToolIdSubscribePostErrors[keyof SubscribeToolApiV1ToolsToolIdSubscribePostErrors];
-
-export type SubscribeToolApiV1ToolsToolIdSubscribePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: PostSubscribeToolResponse;
-};
-
-export type SubscribeToolApiV1ToolsToolIdSubscribePostResponse = SubscribeToolApiV1ToolsToolIdSubscribePostResponses[keyof SubscribeToolApiV1ToolsToolIdSubscribePostResponses];
-
 export type NewConversationApiV1ConversationsNewPostData = {
     body?: never;
     path?: never;
@@ -1447,6 +1490,75 @@ export type GenerateCompletionApiV1CompletionPostResponses = {
 };
 
 export type GenerateCompletionApiV1CompletionPostResponse = GenerateCompletionApiV1CompletionPostResponses[keyof GenerateCompletionApiV1CompletionPostResponses];
+
+export type UploadFileApiV1FilesUploadPostData = {
+    body: BodyUploadFileApiV1FilesUploadPost;
+    path?: never;
+    query?: never;
+    url: '/api/v1/files/upload';
+};
+
+export type UploadFileApiV1FilesUploadPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UploadFileApiV1FilesUploadPostError = UploadFileApiV1FilesUploadPostErrors[keyof UploadFileApiV1FilesUploadPostErrors];
+
+export type UploadFileApiV1FilesUploadPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PostFileUploadResponse;
+};
+
+export type UploadFileApiV1FilesUploadPostResponse = UploadFileApiV1FilesUploadPostResponses[keyof UploadFileApiV1FilesUploadPostResponses];
+
+export type GetFilesApiV1FilesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/files';
+};
+
+export type GetFilesApiV1FilesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GetFilesResponse;
+};
+
+export type GetFilesApiV1FilesGetResponse = GetFilesApiV1FilesGetResponses[keyof GetFilesApiV1FilesGetResponses];
+
+export type VectorizeFilesApiV1FilesFileIdVectorizePostData = {
+    body?: never;
+    path: {
+        /**
+         * File Id
+         */
+        file_id: string;
+    };
+    query?: never;
+    url: '/api/v1/files{file_id}/vectorize';
+};
+
+export type VectorizeFilesApiV1FilesFileIdVectorizePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type VectorizeFilesApiV1FilesFileIdVectorizePostError = VectorizeFilesApiV1FilesFileIdVectorizePostErrors[keyof VectorizeFilesApiV1FilesFileIdVectorizePostErrors];
+
+export type VectorizeFilesApiV1FilesFileIdVectorizePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type GetAvailableAgentsApiV1AgentsGetData = {
     body?: never;

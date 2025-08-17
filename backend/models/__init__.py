@@ -28,7 +28,8 @@ from backend.models.recommendations import (
 )
 from backend.models.tools import (
     Tool,
-    ToolMaster
+    ToolMaster,
+    ToolSpec
 )
 from backend.models.files import (
     File

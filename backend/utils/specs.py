@@ -1,10 +1,11 @@
 import json
-from typing import Optional, Tuple, List, cast
+from typing import Tuple, List, cast
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import backend.db.agent_tables as tbl
 import backend.models as mdl
+
 
 def get_agent_spec(
     session: Session,

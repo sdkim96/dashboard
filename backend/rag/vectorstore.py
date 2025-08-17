@@ -55,10 +55,12 @@ class VectorStore(Generic[mdl.DocumentT]):
         embedding_model: str = "text-embedding-3-small",
     ) -> "VectorStore[mdl.DocumentT]":
         try:
-            await document_class.get_es_definition().init(
-                index=indexname,
-                using=vector_client,
-            )
+            resp = await vector_client.indices.exists(index=indexname)
+            if not resp:
+                await document_class.get_es_definition().init(
+                    index=indexname,
+                    using=vector_client,
+                )
         except Exception as indexErr:
             raise ValueError(
                 f"Failed to initialize index {indexname}: {indexErr}"
@@ -196,8 +198,31 @@ class VectorStore(Generic[mdl.DocumentT]):
             return results, ValueError("No results found.")
         
         for hit in resp.hits:
-            results.append(self.document_class.model_validate(hit))
-        
+            doc = self.document_class(
+                document_id=hit.document_id,  # type: ignore
+                content=hit.content,  # type: ignore
+                tags=hit.tags,  # type: ignore
+                created_at=hit.created_at,  # type: ignore
+                updated_at=hit.updated_at,  # type: ignore
+                page_meta=mdl.PageMeta(
+                    number=hit.page_meta.number,
+                    total_pages=hit.page_meta.total_pages
+                ),  # type: ignore
+                file_meta=mdl.FileMeta(
+                    file_id=hit.file_meta.file_id,
+                    file_path=hit.file_meta.file_path,
+                    file_name=hit.file_meta.file_name,
+                    file_extension=hit.file_meta.file_extension,
+                    file_type=hit.file_meta.file_type,
+                    file_description=hit.file_meta.file_description,
+                    effective_from=hit.file_meta.effective_from,
+                    effective_to=hit.file_meta.effective_to,
+                    author=hit.file_meta.author,
+                    department=hit.file_meta.department
+                )
+            )
+            results.append(doc)
+
         return results[:filter.top_k], None
 
 
@@ -236,7 +261,7 @@ if __name__ == "__main__":
         )
         embedding_service = AsyncOpenAI()
         cache_service = AsyncCacheService()
-        indexname = "documents_index"
+        indexname = "newsearch"
         
         async with vector_client as client:
             vector_store = await VectorStore.create(
@@ -266,7 +291,7 @@ if __name__ == "__main__":
         print(f"Vector client initialized in {init_endtime - time} seconds")
         embedding_service = AsyncOpenAI()
         cache_service = AsyncCacheService()
-        indexname = "documents_index"
+        indexname = "newsearch"
         
         async with vector_client as client:
             vector_store = await VectorStore.create(
@@ -308,4 +333,4 @@ if __name__ == "__main__":
             if err:
                 print(f"Error adding documents: {err}")
 
-    asyncio.run(main())
+    asyncio.run(search())

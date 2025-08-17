@@ -1,7 +1,9 @@
+import inspect
 import datetime as dt
 import uuid
+from typing import Callable, List, Any, ValuesView
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class ToolMaster(BaseModel):
     tool_id: str = Field(
@@ -20,10 +22,6 @@ class ToolMaster(BaseModel):
         None, 
         description="Link to the icon representing the tool. It can be a URL or a path."
     )
-    subscriber_count: int = Field(
-        default=0,
-        description="Number of users subscribed to this tool."
-    )
     created_at: dt.datetime = Field(
         default_factory=dt.datetime.now, 
         description="Timestamp when the tool was created."
@@ -31,10 +29,6 @@ class ToolMaster(BaseModel):
     updated_at: dt.datetime = Field(
         default_factory=dt.datetime.now, 
         description="Timestamp when the tool was last updated."
-    )
-    is_subscribed: bool = Field(
-        default=False,
-        description="Indicates whether the current user is subscribed to this tool."
     )
     @classmethod
     def failed(cls) -> "ToolMaster":
@@ -46,8 +40,6 @@ class ToolMaster(BaseModel):
             icon_link=None,
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now(),
-            subscriber_count=0,
-            is_subscribed=False,
         )
 
     @classmethod
@@ -60,11 +52,10 @@ class ToolMaster(BaseModel):
             icon_link="http://example.com/icon.png",
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now(),
-            subscriber_count=0,
-            is_subscribed=False,
         )
 
 class Tool(ToolMaster):
+    model_config = ConfigDict(from_attributes=True)
     description: str = Field(
         ..., 
         description="Description of the tool."
@@ -81,7 +72,6 @@ class Tool(ToolMaster):
             icon_link=None,
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now(),
-            subscriber_count=0,
         )
 
     @classmethod
@@ -109,3 +99,14 @@ class ToolRequest(BaseModel):
         return cls(
             tool_id=str(uuid.uuid4()),
         )
+    
+
+class ToolSpec(Tool):
+    fn: Callable= Field(
+        ...,
+        description="The function to be executed by the tool."
+    )
+
+    def inspect_parameters(self) -> ValuesView[inspect.Parameter]:
+        
+        return inspect.signature(self.fn).parameters.values()

@@ -13,17 +13,22 @@ class Context(BaseModel):
     """
     title: str = Field(
         ...,
-        description="Title of the conversation.",
+        description="현재 상황을 반영한 대화의 제목 (10자 이내) 반드시 한국어로 유효한 문자열이어야 합니다.",
         examples=["My Conversation"]
+    )
+    intent: str = Field(
+        ...,
+        description="현재 상황을 반영한 대화의 의도",
+        examples=["GetWeather", "BookFlight"]
     )
     icon: str = Field(
         "😎",
-        description="Icon representing the conversation.",
+        description="현재 상황을 반영한 대화의 아이콘",
         examples=["😎"]
     )
     summary: str = Field(
         "",
-        description="Summary of the conversation.",
+        description="현재 상황을 반영한 대화의 요약",
         examples=["This is a summary of the conversation."]
     )
 
@@ -50,6 +55,7 @@ class History(Context):
         """
         return len(self.messages) == 0
 
+
     @classmethod
     def failed(cls) -> "History":
         """
@@ -58,7 +64,8 @@ class History(Context):
         This is useful for indicating that the history retrieval failed.
         """
         return cls(
-            conversation_id="",
+            intent="",
+            conversation_id="<conversation_id>",
             user_id="",
             title="",
             icon="😎",
@@ -66,7 +73,26 @@ class History(Context):
             messages=[]
         )
     
-    async def update_context(self, current_user_message: Message) -> None:
+    def get_context(self) -> str:
+        """
+        Get context from the history object.
+        """
+        return (
+f"""
+---
+현재까지의 사용자 의도: {self.intent}
+사용자 맥락 제목: {self.title}
+사용자 맥락 요약: {self.summary}
+---\n
+"""        
+        )
+
+    
+    async def update_context(
+        self, 
+        current_user_message: Message,
+        parent_message_id: str | None = None
+    ) -> None:
         """
         Generates a context and stores it in the history object.
         
@@ -78,14 +104,36 @@ class History(Context):
         Returns:
             out (None) - This method does not return anything.
         """
+
+        if parent_message_id is None:
+            self.summary = current_user_message.content.parts[0]
+            self.title = current_user_message.content.parts[0][:10]
+            self.icon = "😎"
+            self.intent = current_user_message.content.parts[0]
+            return None
         
         messages = self.marshal_to_messagelike(current_user_message)
         try:
             completion = openai.chat.completions.parse(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": f"You are a helpful assistant. Generate a context from the conversations. current user message: {current_user_message.content.parts[0]}"},
-                    *messages
+                    {
+                        "role": "system", 
+                        "content": (
+f"""
+## 역할 
+당신은 맥락분석기입니다.
+
+## 목표
+현재 사용자에 대한 맥락과 의도를 생성하시오.
+유저의 최근 메시지에 가중치를 두지만, 이전 메시지와 맥락을 고려하여 결과를 내시오.
+
+## 이전 메시지의 맥락
+{self.get_context()}
+"""
+                        )
+                    },
+                    *messages #type: ignore
                 ],
                 response_format=Context
             )
@@ -101,6 +149,7 @@ class History(Context):
         self.summary = context.summary
         self.title = context.title
         self.icon = context.icon
+        self.intent = context.intent
 
 
     def marshal_to_messagelike(self, user_message: Message) -> List[dict]:
