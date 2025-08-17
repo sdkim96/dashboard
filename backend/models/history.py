@@ -23,7 +23,7 @@ class Context(BaseModel):
     )
     icon: str = Field(
         "😎",
-        description="현재 상황을 반영한 대화의 아이콘",
+        description="현재 상황을 반영한 대화의 아이콘. 반드시 이모지로 유효한 문자열이어야 합니다. 만약 적절한 이모지가 없으면 😶‍🌫️ 사용하세요.",
         examples=["😎"]
     )
     summary: str = Field(

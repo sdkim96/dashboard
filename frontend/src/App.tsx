@@ -8,6 +8,7 @@ import Sidebar from './components/Sidebar'
 import MarketplaceView from './views/MarketplaceView'
 import RecommendationsView from './views/RecommendationsView'
 import ChatView from './views/ChatView'
+import FileManagerView from './views/FileManagerView'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('recommendations')
@@ -24,6 +25,8 @@ function App() {
               return <ChatView />
             case 'recommendations':
               return <RecommendationsView />
+            case 'files':
+              return <FileManagerView />
             default:
               return <Box>Unknown Tab</Box>
           }

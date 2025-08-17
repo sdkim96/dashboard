@@ -58,5 +58,7 @@ from backend.models.api import (
     GetConversationByRecommendationRequest,
     DeleteRecommendationResponse,
     PostFileUploadResponse,
-    GetFilesResponse
+    GetFilesResponse,
+    PostVectorizeFilesResponse,
+    DeleteFilesByIDResponse
 )

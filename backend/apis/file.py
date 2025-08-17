@@ -102,8 +102,9 @@ async def get_files(
 
 
 @FILES.post(
-    path="{file_id}/vectorize",
+    path="/{file_id}/vectorize",
     summary="Vectorize Files",
+    response_model=mdl.PostVectorizeFilesResponse,
     description="""
 This endpoint allows users to vectorize their uploaded files.
 """
@@ -113,12 +114,51 @@ async def vectorize_files(
     request_id: Annotated[str, Depends(dp.generate_request_id)],
     session: Annotated[Session, Depends(dp.get_db)],
     user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
-):
-    err = await svc.vectorize_file(user_profile=user_profile, session=session, file_id=file_id)
+) -> mdl.PostVectorizeFilesResponse:
+    err = await svc.vectorize_file(
+        request_id=request_id,
+        user_profile=user_profile,
+        session=session,
+        file_id=file_id
+    )
     if err:
         raise HTTPException(
             status_code=500,
             detail=f"Error vectorizing file: {err}"
         )
 
-    return {"status": "success", "message": "File vectorized successfully.", "request_id": request_id}
+    return mdl.PostVectorizeFilesResponse(
+        status="success",
+        message="File vectorization started successfully.",
+        request_id=request_id,
+        file_id=file_id,
+    )
+
+
+@FILES.delete(
+    path="/{file_id}",
+    summary="Delete File",
+    response_model=mdl.DeleteFilesByIDResponse,
+    description="""
+This endpoint allows users to delete their uploaded files.
+"""
+)
+async def delete_file(
+    file_id: str,
+    request_id: Annotated[str, Depends(dp.generate_request_id)],
+    session: Annotated[Session, Depends(dp.get_db)],
+    user_profile: Annotated[mdl.User, Depends(dp.get_current_userprofile)],
+) -> mdl.DeleteFilesByIDResponse:
+    err = await svc.delete_file(user_profile=user_profile, session=session, file_id=file_id)
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error deleting file: {err}"
+        )
+
+    return mdl.DeleteFilesByIDResponse(
+        status="success",
+        message="File deleted successfully.",
+        request_id=request_id,
+        file_id=file_id
+    )

@@ -606,3 +606,36 @@ class GetFilesResponse(BaseResponse):
             request_id=str(uuid.uuid4()),
             files=[File.mock()]
         )
+    
+
+class DeleteFilesByIDResponse(BaseResponse):
+    file_id: str = Field(
+        ...,
+        description="ID of the deleted file.",
+        examples=[str(uuid.uuid4())]
+    )
+
+    @classmethod
+    def mock(cls) -> "DeleteFilesByIDResponse":
+        return cls(
+            status="success",
+            message="File deleted successfully.",
+            request_id=str(uuid.uuid4()),
+            file_id=str(uuid.uuid4())
+        )
+    
+class PostVectorizeFilesResponse(BaseResponse):
+    file_id: str = Field(
+        ...,
+        description="ID of the vectorized file.",
+        examples=[str(uuid.uuid4())]
+    )
+
+    @classmethod
+    def mock(cls) -> "PostVectorizeFilesResponse":
+        return cls(
+            status="success",
+            message="File vectorized successfully.",
+            request_id=str(uuid.uuid4()),
+            file_id=str(uuid.uuid4())
+        )

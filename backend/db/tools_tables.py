@@ -59,8 +59,6 @@ class ToolResult(ToolBase):
     updated_at: Mapped[dt.datetime] = mapped_column(index=True)
 
     __table_args__ = (
-        # PK는 (conversation_id, message_id, tool_id)로 이미 인덱스 있음.
-        # 흔한 조회 패턴 가속을 위한 보조 인덱스들:
         Index("ix_tool_results_conv_msg", "conversation_id", "message_id"),
         Index("ix_tool_results_conv_created", "conversation_id", "created_at"),
         Index("ix_tool_results_msg_tool", "message_id", "tool_id"),

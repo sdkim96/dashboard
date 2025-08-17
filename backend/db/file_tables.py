@@ -57,6 +57,28 @@ class Document(FileBase):
         doc="Foreign key referencing the file this document belongs to."
     )
 
+class VectorizingFile(FileBase):
+    __tablename__ = 'vectorizing_file'
+
+    vectorizing_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc="A unique identifier for the vectorized file."
+    )
+    file_id: Mapped[str] = mapped_column(
+        doc="Foreign key referencing the file this vectorized document belongs to."
+    )
+    status: Mapped[str] = mapped_column(
+        doc="The status of the vectorization process, e.g., 'red', 'yellow', 'green'."
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        default=None,
+        doc="An optional error message if the vectorization process fails."
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        default=dt.datetime.now,
+        doc="The timestamp when the vectorization process was initiated."
+    )
+
 def create_file_all(engine: Engine):
     FileBase.metadata.create_all(engine)
 

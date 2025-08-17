@@ -44,7 +44,7 @@ def get_history(
             Message.role,
             Message.llm_deployment_id,
             ToolResult.tool_id,
-            ToolResult.output,
+            ToolResult.output.label('tool_result'),
             Message.created_at,
             Message.updated_at
         )

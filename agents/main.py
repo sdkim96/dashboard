@@ -222,7 +222,7 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         ) = await self._handle_tool_calls(messages=messages)
 
         schemas = [s.tool_schema for s in tool_responses if s.success]
-        yield {'type': 'status', 'content': "🤖 Generating Answers..."}
+        yield {'type': 'status', 'content': f"😎 사용자님! 답변 생성중입니다. 조금만 기다려주세요!"}
         for r in tool_responses:
             yield {'type': 'tool', 'content': r.model_dump_json()}
 

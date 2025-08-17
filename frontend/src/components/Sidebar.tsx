@@ -1,5 +1,6 @@
+// Sidebar.tsx
 import { VStack, IconButton, Box, Tooltip } from '@chakra-ui/react'
-import { HiViewGrid, HiChat, HiArchive } from 'react-icons/hi'
+import { HiViewGrid, HiChat, HiArchive, HiFolder } from 'react-icons/hi'
 
 import type { ActiveTab } from '../types/type'
 
@@ -21,6 +22,8 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
       alignItems="center"
     >
       <VStack spacing={1} width="100%">
+
+        {/* Recommendations */}
         <Tooltip label="Recommendations" placement="right" hasArrow>
           <IconButton
             aria-label="Recommendations"
@@ -44,6 +47,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
           />
         </Tooltip>
 
+        {/* Marketplace */}
         <Tooltip label="Marketplace" placement="right" hasArrow>
           <IconButton
             aria-label="Marketplace"
@@ -67,6 +71,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
           />
         </Tooltip>
         
+        {/* Chat */}
         <Tooltip label="Chat" placement="right" hasArrow>
           <IconButton
             aria-label="Chat"
@@ -87,6 +92,29 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
               bg: activeTab === 'chat' ? 'blue.200' : 'gray.200'
             }}
             onClick={() => onTabChange('chat')}
+          />
+        </Tooltip>
+        {/* Files */}
+        <Tooltip label="Files" placement="right" hasArrow>
+          <IconButton
+            aria-label="Files"
+            icon={<HiFolder size={20} />}
+            variant="ghost"
+            size="lg"
+            width="48px"
+            height="48px"
+            borderRadius="md"
+            colorScheme={activeTab === 'files' ? 'blue' : 'gray'}
+            bg={activeTab === 'files' ? 'blue.100' : 'transparent'}
+            color={activeTab === 'files' ? 'blue.600' : 'gray.600'}
+            _hover={{
+              bg: activeTab === 'files' ? 'blue.200' : 'gray.100',
+              color: activeTab === 'files' ? 'blue.700' : 'gray.700'
+            }}
+            _active={{
+              bg: activeTab === 'files' ? 'blue.200' : 'gray.200'
+            }}
+            onClick={() => onTabChange('files')}
           />
         </Tooltip>
       </VStack>

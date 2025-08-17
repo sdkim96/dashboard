@@ -1,4 +1,5 @@
 import datetime as dt
+from typing import Tuple, Literal
 from pydantic import BaseModel, Field, ConfigDict
 
 class File(BaseModel):
@@ -35,10 +36,15 @@ class File(BaseModel):
         description="Content type of the file.",
         examples=["text/plain", "application/pdf", "image/jpeg"]
     )
-    author_id: str = Field(
+    author_name: str = Field(
         ...,
         description="ID of the user who uploaded the file.",
         examples=["user-12345"]
+    )
+    vectorizing_status: Literal['red', 'yellow', 'green', 'gray'] = Field(
+        ...,
+        description="Status of the vectorization process. RED: Failed to vectorize, YELLOW: In progress, GREEN: Succeeded, GRAY: Not started",
+        examples=["red", "yellow", "green", "gray"]
     )
     created_at: dt.datetime = Field(
         default=dt.datetime.now(),
@@ -60,7 +66,8 @@ class File(BaseModel):
             file_size=1024,
             file_extension="txt",
             file_content_type="text/plain",
-            author_id="user-12345",
+            vectorizing_status="red",
+            author_name="user-12345",
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now()
         )
@@ -74,7 +81,8 @@ class File(BaseModel):
             file_size=1024,
             file_extension="txt",
             file_content_type="text/plain",
-            author_id="user-12345",
+            vectorizing_status="green", 
+            author_name="user-12345",
             created_at=dt.datetime.now(),
             updated_at=dt.datetime.now()
         )

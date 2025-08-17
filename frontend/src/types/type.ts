@@ -1,2 +1,2 @@
-export type ActiveTab = 'marketplace' | 'chat' | 'recommendations'
+export type ActiveTab = 'files' | 'recommendations' | 'marketplace' | 'chat'
 export type Departments = 'Common' | 'HR' | 'Sales' | 'Marketing' | 'CustomerSupport' | 'Finance' | 'Planning' | 'BusinessSupport' | 'ProductDevelopment' | 'InternationalSales'

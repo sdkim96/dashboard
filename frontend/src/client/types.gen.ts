@@ -366,6 +366,32 @@ export type CreateConversationResponse = {
 };
 
 /**
+ * DeleteFilesByIDResponse
+ */
+export type DeleteFilesByIdResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * File Id
+     * ID of the deleted file.
+     */
+    file_id: string;
+};
+
+/**
  * DeleteRecommendationResponse
  * DELETE /api/v1/recommendations/{recommendation_id} Response model
  */
@@ -427,10 +453,15 @@ export type File = {
      */
     file_content_type: string;
     /**
-     * Author Id
+     * Author Name
      * ID of the user who uploaded the file.
      */
-    author_id: string;
+    author_name: string;
+    /**
+     * Vectorizing Status
+     * Status of the vectorization process. RED: Failed to vectorize, YELLOW: In progress, GREEN: Succeeded, GRAY: Not started
+     */
+    vectorizing_status: 'red' | 'yellow' | 'green' | 'gray';
     /**
      * Created At
      * Timestamp when the file was created.
@@ -859,15 +890,15 @@ export type MessageResponse = {
      */
     parent_message_id?: string | null;
     /**
-     * Agent Id
-     * ID of the agent that sent the message, if applicable.
-     */
-    agent_id?: string | null;
-    /**
      * Tool Id
      * ID of the tool that sent the message, if applicable.
      */
     tool_id?: string | null;
+    /**
+     * Tool Result
+     * Result of the tool used to generate the message, if applicable.
+     */
+    tool_result?: string | null;
     /**
      * Role
      * Role of the message sender, e.g., 'user' or 'assistant'.
@@ -1060,6 +1091,32 @@ export type PostRescommendationRequest = {
      * Details of the recommendation to be created.
      */
     work_details: string;
+};
+
+/**
+ * PostVectorizeFilesResponse
+ */
+export type PostVectorizeFilesResponse = {
+    /**
+     * Status
+     * Status of the response, e.g., 'success' or 'error'.
+     */
+    status?: 'success' | 'error';
+    /**
+     * Message
+     * Message providing additional information about the response.
+     */
+    message?: string;
+    /**
+     * Request Id
+     * Unique identifier for the request, used for tracking and debugging.
+     */
+    request_id: string;
+    /**
+     * File Id
+     * ID of the vectorized file.
+     */
+    file_id: string;
 };
 
 /**
@@ -1541,7 +1598,7 @@ export type VectorizeFilesApiV1FilesFileIdVectorizePostData = {
         file_id: string;
     };
     query?: never;
-    url: '/api/v1/files{file_id}/vectorize';
+    url: '/api/v1/files/{file_id}/vectorize';
 };
 
 export type VectorizeFilesApiV1FilesFileIdVectorizePostErrors = {
@@ -1557,8 +1614,40 @@ export type VectorizeFilesApiV1FilesFileIdVectorizePostResponses = {
     /**
      * Successful Response
      */
-    200: unknown;
+    200: PostVectorizeFilesResponse;
 };
+
+export type VectorizeFilesApiV1FilesFileIdVectorizePostResponse = VectorizeFilesApiV1FilesFileIdVectorizePostResponses[keyof VectorizeFilesApiV1FilesFileIdVectorizePostResponses];
+
+export type DeleteFileApiV1FilesFileIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * File Id
+         */
+        file_id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{file_id}';
+};
+
+export type DeleteFileApiV1FilesFileIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteFileApiV1FilesFileIdDeleteError = DeleteFileApiV1FilesFileIdDeleteErrors[keyof DeleteFileApiV1FilesFileIdDeleteErrors];
+
+export type DeleteFileApiV1FilesFileIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeleteFilesByIdResponse;
+};
+
+export type DeleteFileApiV1FilesFileIdDeleteResponse = DeleteFileApiV1FilesFileIdDeleteResponses[keyof DeleteFileApiV1FilesFileIdDeleteResponses];
 
 export type GetAvailableAgentsApiV1AgentsGetData = {
     body?: never;

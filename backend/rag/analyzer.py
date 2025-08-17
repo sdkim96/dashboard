@@ -3,10 +3,6 @@ import datetime as dt
 from typing import List, Tuple, Callable
 from pydantic import BaseModel, Field
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-import backend.db.file_tables as tbl
 import backend.models as mdl
 import backend.rag.models as rag
 import backend._types as t
@@ -105,7 +101,7 @@ async def analyze(
         Tuple[List[rag.Document], Exception | None]: The analyzed documents and any error that occurred.
 
     """
-    lg.logger.info(f"Analyzing Starts with file {file.file_id} for user {file.author_id}!!")
+    lg.logger.info(f"Analyzing Starts with file {file.file_id} for user {file.author_name}!!")
 
     fileanalyzed, err = await ai.aparse(
         messages=[
