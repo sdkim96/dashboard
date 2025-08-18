@@ -552,6 +552,18 @@ async def chat_completion_with_agent(
         StreamingResponse: A streaming response containing the generated recommendation.
     """
     start = time.time()
+    lg.logger.info(
+f"""
+---
+💬 API: Chat Completion With Agent
+유저: {user_profile.username}
+질문: {body.messages[0].content.parts[0]}
+사용예정 LLM: {body.llm.deployment_id}
+사용에이전트: {body.agent.agent_id} v{body.agent.agent_version}
+시작시간: {start:.2f}
+---
+"""
+    )
     yield await chunk(
         event="start", 
         data={"message": ""}, 
@@ -567,16 +579,23 @@ async def chat_completion_with_agent(
     )
     yield await chunk(
         event="status", 
-        data={"message": "🧐 질문을 분석중입니다..."}, 
+        data={"message": "🧐 사용자님의 질문을 분석중입니다..."}, 
     )
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.02)
     if err:
         lg.logger.error(
-            f"Error getting history for user {user_profile.user_id} in conversation {body.conversation_id}: {err}"
+f"""
+Raises
+---
+위치: get_history
+유저: {user_profile.username}
+오류 메시지: {err}
+---
+"""     
         )
         yield await chunk(
             "error", 
-            {"message": "❌ Server sent error... Retry later."},
+            {"message": "❌ 서버 내부 오류가 발생하였습니다. 나중에 다시 시도해주세요."},
         )
         await asyncio.sleep(0.1)
         return
@@ -589,11 +608,17 @@ async def chat_completion_with_agent(
     )
     if err:
         lg.logger.error(
-            f"Error getting agent spec for agent {body.agent.agent_id} version {body.agent.agent_version}: {err}"
-        )
+f"""
+Raises
+---
+위치: get_agent_spec
+유저: {user_profile.username}
+오류 메시지: {err}
+---
+"""     )
         yield await chunk(
             "error", 
-            {"message": "❌ Server sent error... Retry later."},
+            {"message": "❌ 서버 내부 오류가 발생하였습니다. 나중에 다시 시도해주세요."},
         )
         return
     
@@ -608,27 +633,50 @@ async def chat_completion_with_agent(
         content=body.messages[0].content,
     )
     new_messages.append(user)
-    await history.update_context(user)
-
+    await history.update_context(
+        current_user_message=user,
+        parent_message_id=body.parent_message_id
+    )
+    lg.logger.info(
+f"""
+---
+📊 현재 히스토리의 맥락(컨텍스트)를 업데이트 완료하였습니다.
+유저: {user_profile.username}
+걸린 시간: {time.time() - start:.2f}초
+---
+"""
+    )
+    yield await chunk(
+        event="status", 
+        data={"message": (
+f"""
+💭 사용자님은 **{history.intent}**를 하고자 하셔... 이 문제를 해결하기 위해서 어떤 해결책이 있을까? 🤔
+"""
+        )}, 
+    )
     simple_agent = AsyncSimpleAgent(
         provider=AsyncOpenAI(
             api_key=os.getenv("OPENAI_API_KEY")
         )
     )
-    yield await chunk(
-        event="status", 
-        data={"message": "🤖 답변을 생성중입니다..."}, 
-    )
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.02)
     
     messages = [{"role": "system", "content": agent_spec.prompt}]
     messages.extend(history.marshal_to_messagelike(user))
     
-    gen = simple_agent.astream(
+    gen = simple_agent.astream_v2(
         messages=messages,
         deployment_id=body.llm.deployment_id
     )
-    
+    lg.logger.info(
+f"""
+---
+📊 스트리밍을 시작합니다...
+유저: {user_profile.username}
+걸린 시간: {time.time() - start:.2f}초
+---
+"""
+    )
     parts = ""
     async for response in gen:
         if response['type'] == 'delta':
@@ -636,6 +684,7 @@ async def chat_completion_with_agent(
                 event="data",
                 data={"message": response['content']}
             )
+            lg.logger.debug(f"Streaming: {response['content']}")
             parts += response['content']
         elif response['type'] == 'done':
             yield await chunk(
@@ -643,22 +692,45 @@ async def chat_completion_with_agent(
                 data={"message": response['content']}
             )
         elif response['type'] == 'error':
+            lg.logger.error(
+f"""
+Raises
+---
+위치: get_tools_by_ids
+유저: {user_profile.username}
+오류 메시지: {err}
+---
+"""
+            )
             yield await chunk(
                 event="error",
                 data={"message": response['content']}
             )
             return
+        elif response['type'] == 'status':
+            yield await chunk(
+                event="status",
+                data={"message": response['content']}
+            )
 
         await asyncio.sleep(0.02)
     
     assistant = mdl.Message.assistant_message(
         message_id=assaistant_message_id,
         parent_message_id=user_message_id,
-        agent_id=body.agent.agent_id,
         content=mdl.Content(type='text', parts=[parts]),
         llm_deployment_id=body.llm.deployment_id
     )
     new_messages.append(assistant)
+    lg.logger.info(
+f"""
+---
+📦 결과 저장예정
+유저: {user_profile.username}
+걸린 시간: {time.time() - start:.2f}초
+---
+"""
+    )
     err = set_history(
         session=session,
         history=history,

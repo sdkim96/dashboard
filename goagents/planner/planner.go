@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,19 +25,15 @@ const RootAgentID = "root-agent"
 type Plan struct {
 	ID           string    `json:"id"`
 	Objective    string    `json:"objective"`
-	Context      string    `json:"context"`
 	MaximumSteps int       `json:"maximum_steps"`
 	IsCompleted  bool      `json:"is_completed"`
 	CreatedAt    time.Time `json:"created_at"`
-	FinalStepID  string    `json:"final_step_id"`
+	Context      string    `json:"context"`
+	mu           sync.RWMutex
 }
 
 func (p *Plan) IsFinished() bool {
 	return p.IsCompleted
-}
-func (p *Plan) SetFinalStepID(stepID string) {
-	p.FinalStepID = stepID
-	fmt.Printf("Final step ID set to: %s\n", p.FinalStepID)
 }
 
 // Step
@@ -50,11 +48,10 @@ type StepBody struct {
 type Step struct {
 	ID            string    `json:"id"`
 	PlanID        string    `json:"plan_id"`
-	AgentID       string    `json:"agent_id"`
-	BeforeAgentID string    `json:"before_id"`
-	CreatedAt     time.Time `json:"created_at"`
 	StepBody      StepBody  `json:"step_body"`
+	BeforeAgentID string    `json:"before_agent_id"`
 	Result        string    `json:"result"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 func (s *Step) IsFinished() bool {
@@ -66,6 +63,14 @@ func (s *Step) IsFinished() bool {
 type Planner struct {
 	Plan  *Plan
 	Steps map[string]*Step
+}
+
+func (p *Planner) ToStepsDescription() string {
+	var descriptions []string
+	for _, step := range p.Steps {
+		descriptions = append(descriptions, fmt.Sprintf("단계: %s, 결과: %s", step.StepBody.Query, step.Result))
+	}
+	return strings.Join(descriptions, "\n")
 }
 
 var NewPlanPrompt = `
@@ -102,31 +107,34 @@ var NewStepPrompt = `
 %s
 `
 
+var IsPlanFinishedPrompt = `
+## 역할
+당신은 목표 달성 여부를 판단하는 AI입니다.
+
+## 목표
+- 주어진 계획이 완료되었는지 여부를 판단합니다.
+- 각 <단계>의 결과를 바탕으로 <계획의 최종목표 달성> 여부를 결정합니다.
+- 종료되었다고 판단하면 true, 그렇지 않으면 false를 반환합니다.
+
+## <단계>
+%s
+
+## <계획의 최종목표>
+%s
+`
+
+type IsFinished struct {
+	Finished bool `json:"finished"`
+}
+
 func NewPlanner(
 	ctx context.Context,
 	query string,
 	userContext string,
 	maximumSteps int,
-) *Planner {
+) (*Planner, error) {
 
-	uid4 := "plan-" + uuid.New().String()
 	openaiClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
-
-	plan := &Plan{
-		ID:           uid4,
-		Objective:    query,
-		Context:      userContext,
-		MaximumSteps: maximumSteps,
-		IsCompleted:  false,
-		CreatedAt:    time.Now(),
-		FinalStepID:  RootStepID,
-	}
-
-	planner := &Planner{
-		Plan:  plan,
-		Steps: make(map[string]*Step),
-	}
-
 	systemPrompt := fmt.Sprintf(NewPlanPrompt, userContext)
 	ai := providers.NewOpenAIProvider(&openaiClient, systemPrompt)
 	objective, err := ai.Invoke(
@@ -136,17 +144,29 @@ func NewPlanner(
 	)
 	if err != nil {
 		fmt.Printf("Error invoking OpenAI: %s\n", err)
-		return planner
+		return nil, err
 	}
-	plan.Objective = objective
-	fmt.Printf("Plan created with ID: %s, Objective: %s\n", plan.ID, plan.Objective)
-	return planner
+
+	plan := &Plan{
+		ID:           "plan-" + uuid.New().String(),
+		Objective:    objective,
+		Context:      userContext,
+		MaximumSteps: maximumSteps,
+		IsCompleted:  false,
+		CreatedAt:    time.Now(),
+	}
+	planner := &Planner{
+		Plan:  plan,
+		Steps: make(map[string]*Step),
+	}
+
+	return planner, nil
 }
 
 func (p *Planner) PlanStep(
 	ctx context.Context,
 	agents []*registry.AgentCard,
-) (string, error) {
+) (*Step, error) {
 	uid4 := "step-" + uuid.New().String()
 	systemPrompt := fmt.Sprintf(
 		NewStepPrompt,
@@ -164,31 +184,56 @@ func (p *Planner) PlanStep(
 	)
 	if err != nil {
 		fmt.Printf("Error invoking OpenAI for step planning: %s\n", err)
-		return uid4, err
+		return nil, err
 	}
 	step := &Step{
 		ID:            uid4,
 		PlanID:        p.Plan.ID,
-		AgentID:       stepBody.AgentID,
 		BeforeAgentID: RootAgentID,
-		CreatedAt:     time.Now(),
 		StepBody:      stepBody,
 		Result:        "",
+		CreatedAt:     time.Now(),
 	}
-	p.Steps[step.ID] = step
-	return uid4, nil
+	return step, nil
 }
 
-func (p *Planner) FinishStep(
+func (p *Planner) AddStep(step *Step) {
+	p.Plan.mu.Lock()
+	p.Steps[step.ID] = step
+	p.Plan.mu.Unlock()
+}
+
+func (p *Planner) DecideCompletion(
+	ctx context.Context,
 	stepID string,
 	result string,
-) {
+) (bool, error) {
 	if step, exists := p.Steps[stepID]; exists {
 		step.Result = result
 		fmt.Printf("Step %s finished with result: %s\n", step.ID, step.Result)
 	}
-	p.Plan.SetFinalStepID(stepID)
-	fmt.Printf("Step with ID %s not found\n", stepID)
-}
+	if len(p.Steps) >= p.Plan.MaximumSteps {
+		p.Plan.IsCompleted = true
+		fmt.Printf("Plan %s is completed\n", p.Plan.ID)
+	}
+	systemPrompt := fmt.Sprintf(
+		IsPlanFinishedPrompt,
+		p.ToStepsDescription(),
+		p.Plan.Objective,
+	)
+	openaiClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	ai := providers.NewOpenAIProvider(&openaiClient, systemPrompt)
+	isFinished, err := providers.InvokeStructuredOutput[IsFinished](
+		ctx,
+		ai,
+		"계획이 완료되었는지 확인해줘",
+		shared.ChatModelGPT4oMini,
+	)
+	if err != nil {
+		fmt.Printf("Error invoking OpenAI for plan completion check: %s\n", err)
+		return false, err
+	}
+	p.Plan.IsCompleted = isFinished.Finished
 
-func (p *Planner) DecideCompletion(stepID string, result string) {}
+	return isFinished.Finished, nil
+}

@@ -1,9 +1,10 @@
+import asyncio
 import json
 from typing import List,  Tuple, Generic, TypeVar, cast, Any
 
 from pydantic import BaseModel, Field, ConfigDict, create_model
 from anthropic import Anthropic, AsyncAnthropic
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, OpenAI, NOT_GIVEN
 from openai.types.chat import ChatCompletion
 
 from agents.internal.search_engine import BaseSearchEngine
@@ -215,25 +216,30 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         Asynchronously streams the response from the agent based on the provided messages.
 
         """
-        (
-            messages, 
-            tool_responses, 
-            err
-        ) = await self._handle_tool_calls(messages=messages)
+        schemas = NOT_GIVEN
+        if self.tools:
+            (
+                messages, 
+                tool_responses, 
+                err
+            ) = await self._handle_tool_calls(messages=messages)
 
-        schemas = [s.tool_schema for s in tool_responses if s.success]
+            schemas = [s.tool_schema for s in tool_responses if s.success]
+            for r in tool_responses:
+                yield {'type': 'tool', 'content': r.model_dump_json()}
+        
         yield {'type': 'status', 'content': f"😎 사용자님! 답변 생성중입니다. 조금만 기다려주세요!"}
-        for r in tool_responses:
-            yield {'type': 'tool', 'content': r.model_dump_json()}
-
+        
         left_message = {
             'role': 'developer',
             'content': (
 """
 ## 역할
 당신은 좋은 답변 생성기입니다.
+
+## 목표
+당신은 유저에게 적절한 답변을 제공해야 합니다.
 만약 당신이 참고할 수 있는 영역에 내부 문서나 어떤 도구의 호출 결과가 있으면 그것을 적극적으로 사용하시오.
-            
 """
             )
         }

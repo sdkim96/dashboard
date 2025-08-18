@@ -8,7 +8,7 @@ import {
 } from '@chakra-ui/react';
 import {
   HiCloudUpload, HiSearch, HiTrash, HiSparkles, HiInformationCircle,
-  HiUser, HiCalendar, HiLink, HiDocumentText, HiDatabase
+  HiUser, HiCalendar, HiLink, HiDocumentText, HiDatabase, HiKey, HiExternalLink
 } from 'react-icons/hi';
 
 // 정확한 API import
@@ -27,6 +27,7 @@ import type {
   PostVectorizeFilesResponse,
   DeleteFilesByIdResponse
 } from '../client';
+import { HiDocumentPlus } from 'react-icons/hi2';
 
 const formatBytes = (bytes: number) => {
   if (!bytes && bytes !== 0) return '-';
@@ -419,27 +420,33 @@ const FileManagerView: React.FC = () => {
       <Modal isOpen={isOpen} onClose={onClose} size="lg" scrollBehavior="inside">
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>{selected?.file_name}</ModalHeader>
+          <ModalHeader>파일 상세</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {selected ? (
               <VStack align="stretch" spacing={4}>
                 {/* 제목 + 확장자/사이즈(아이콘 포함) */}
                 <VStack align="stretch" spacing={1}>
-                  <Text fontSize="lg" fontWeight="bold">{selected.file_id}</Text>
+                  <Text fontSize="lg" fontWeight="bold">{selected.file_name}</Text>
                 </VStack>
 
                 <Divider />
 
                 {/* 아이콘과 함께 표시되는 상세 메타 */}
                 <VStack align="stretch" spacing={3} fontSize="sm">
-                  <HStack spacing={1}>
+                  <HStack>
+                    <HiKey />
+                    <Text>{selected.file_id}</Text>
+                  </HStack>
+                  <HStack>
                       <HiDatabase />
                       <Text>{formatBytes(selected.file_size)}</Text>
                     </HStack>
                   <HStack>
-                    <HiLink />
-                    <Link wordBreak="break-all">{selected.file_path}</Link>
+                    <HiExternalLink />
+                    <Link href={selected.file_path}>
+                      다운로드 링크
+                    </Link>
                   </HStack>
                   <HStack>
                     <HiDocumentText />

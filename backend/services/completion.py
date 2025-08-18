@@ -90,7 +90,7 @@ Raises
     
     yield await chunk(
         event="status", 
-        data={"message": "🧐 사용자의 질문을 분석중입니다..."}, 
+        data={"message": "🧐 사용자님의 질문을 분석중입니다..."}, 
     )
     await asyncio.sleep(0.1)
     lg.logger.info(

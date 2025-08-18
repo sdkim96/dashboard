@@ -419,6 +419,9 @@ const RecommendationChat = () => {
       if (conversationResponse.data) {
         setMessages(conversationResponse.data.messages || []);
         setConversationId(conversationResponse.data.conversation?.conversation_id || '');
+        setCurrentFinalParentMessageId(
+          conversationResponse.data.messages?.[conversationResponse.data.messages.length - 1].message_id || null
+        );
       }
     } catch (error) {
       console.error('대화 불러오기 실패:', error);
@@ -481,7 +484,6 @@ const RecommendationChat = () => {
         description: 'GPT-4o-Mini Model',
         icon_link: null
       },
-      agent_id: selectedAgent?.agent_id || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -1441,7 +1443,7 @@ const RecommendationChat = () => {
                   <IconButton
                     aria-label="Send message"
                     icon={<FiSend />}
-                    onClick={handleSendMessage}
+                    onClick={() => handleSendMessage()}
                     colorScheme="purple"
                     borderRadius="full"
                     isLoading={isSending}
