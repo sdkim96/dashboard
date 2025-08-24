@@ -1,13 +1,12 @@
 import asyncio
 import json
-from typing import List,  Tuple, Generic, TypeVar, cast, Any
+from typing import List,  Tuple, Generic, TypeVar, cast
 
-from pydantic import BaseModel, Field, ConfigDict, create_model
+from pydantic import BaseModel, Field
 from anthropic import Anthropic, AsyncAnthropic
-from openai import AsyncOpenAI, OpenAI, NOT_GIVEN
+from openai import AsyncOpenAI, OpenAI, NOT_GIVEN, NotGiven
 from openai.types.chat import ChatCompletion
 
-from agents.internal.search_engine import BaseSearchEngine
 
 import agents.tools as tl
 
@@ -43,6 +42,19 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         self.tools = tools
         self.user_context = user_context
 
+    @property
+    def instructions(self) -> str:
+        return (
+            """
+            ## 역할
+            당신은 좋은 답변 생성기입니다.
+
+            ## 목표
+            당신은 유저에게 적절한 답변을 제공해야 합니다.
+            만약 당신이 참고할 수 있는 영역에 내부 문서나 어떤 도구의 호출 결과가 있으면 그것을 적극적으로 사용하시오.
+            """
+        )
+
     async def _handle_tool_calls(
         self, 
         messages: List[dict], 
@@ -60,13 +72,14 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         if not isinstance(self.provider, AsyncOpenAI):
             return messages, [tl.ToolResponse.failed(name=s['name'], tool_schema=s) for s in schemas], NotImplementedError("Tool calling is only implemented for AsyncOpenAI.")
 
-        temp_messages = messages.copy()
-        temp_messages.insert(
-            0,
-            {
-                'role': 'developer',
-                'content': (
-"""
+        try:
+            response = await self.provider.responses.create(
+                model="gpt-5-nano",
+                input=messages, # type: ignore
+                tools=schemas, # type: ignore,
+                tool_choice="required",
+                reasoning={"effort": "minimal"},
+                instructions="""
 ## 역할
 당신은 좋은 답변 생성기입니다.
 
@@ -78,16 +91,6 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
 {context}
 
 """.format(context=self.user_context)
-                )
-            }
-        )
-        try:
-            response = await self.provider.responses.create(
-                model="gpt-5-nano",
-                input=temp_messages, # type: ignore
-                tools=schemas, # type: ignore,
-                tool_choice="required",
-                reasoning={"effort": "minimal"}
             )
         except Exception as e:
             return messages, [tl.ToolResponse.failed(name=s['name'], tool_schema=s) for s in schemas], e
@@ -104,8 +107,8 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
             if item.type == 'function_call':
                 
                 fn_call = item
-                fn_name = item.name
-                fn_args = json.loads(item.arguments)
+                fn_name = fn_call.name
+                fn_args = json.loads(fn_call.arguments)
 
             for available in self.tools:
                 if available.name == fn_name:
@@ -139,6 +142,7 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         self,
         messages: List[dict],
         deployment_id: str,
+        instructions: str | None | NotGiven = None,
     ) -> Tuple[str, Exception | None]:
         """
         Asynchronously invokes the agent with the provided messages and output schema.
@@ -149,6 +153,8 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         Returns:
             str: The response from the agent.
         """
+        if instructions is None:
+            instructions = self.instructions
 
         if isinstance(self.provider, AsyncOpenAI):
             try:
@@ -157,6 +163,7 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
                     await self.provider.chat.completions.create(
                         model=deployment_id,
                         messages=messages,  # type: ignore
+                        instructions=instructions
                     )
                 )
             except Exception as e:
@@ -179,7 +186,8 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         self,
         messages: List[dict],
         response_fmt: type[ParsedT],
-        deployment_id: str
+        deployment_id: str,
+        instructions: str | None | NotGiven = None,
     ) -> Tuple[ParsedT | None, Exception | None]:
         """
         Asynchronously parses the response from the agent based on the provided messages.
@@ -191,12 +199,15 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         Returns:
             List[dict[str, str]]: The parsed response from the agent.
         """
+        if instructions is None:
+            instructions = self.instructions
         
         if isinstance(self.provider, AsyncOpenAI):
             response = await self.provider.responses.parse(
                 model=deployment_id,
                 input=messages, #type: ignore
-                text_format=response_fmt
+                text_format=response_fmt,
+                instructions=instructions
             )
         else:
             raise NotImplementedError("Parsing is not implemented for this provider.")
@@ -210,48 +221,37 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
     async def astream_v2(
         self,
         messages: List[dict],
-        deployment_id: str
+        deployment_id: str,
+        instructions: str | None | NotGiven = None,
     ):
         """
         Asynchronously streams the response from the agent based on the provided messages.
 
         """
+        instructions = instructions or self.instructions
         schemas = NOT_GIVEN
+
         if self.tools:
             (
                 messages, 
                 tool_responses, 
                 err
             ) = await self._handle_tool_calls(messages=messages)
-
-            schemas = [s.tool_schema for s in tool_responses if s.success]
-            for r in tool_responses:
-                yield {'type': 'tool', 'content': r.model_dump_json()}
+            if err is None:
+                schemas = [s.tool_schema for s in tool_responses if s.success]
+                for r in tool_responses:
+                    yield {'type': 'tool', 'content': r.model_dump_json()}
         
         yield {'type': 'status', 'content': f"😎 사용자님! 답변 생성중입니다. 조금만 기다려주세요!"}
-        
-        left_message = {
-            'role': 'developer',
-            'content': (
-"""
-## 역할
-당신은 좋은 답변 생성기입니다.
-
-## 목표
-당신은 유저에게 적절한 답변을 제공해야 합니다.
-만약 당신이 참고할 수 있는 영역에 내부 문서나 어떤 도구의 호출 결과가 있으면 그것을 적극적으로 사용하시오.
-"""
-            )
-        }
-        messages.insert(0, left_message)
 
         if not isinstance(self.provider, AsyncOpenAI):
             raise NotImplementedError("Streaming is not implemented for this provider.")
         try:
             async with self.provider.responses.stream(
                 model=deployment_id,
-                input=messages,
+                input=messages, 
                 tools=schemas,
+                instructions=instructions,
             ) as stream:
                 async for event in stream:
                     if event.type == 'response.output_text.delta':
@@ -263,44 +263,3 @@ class AsyncSimpleAgent(Generic[AsyncProviderT]):
         except Exception as e:
             yield {'type': 'error', 'content': str(e)}
             
-
-    
-    async def astream(
-        self,        
-        messages: List[dict],
-        deployment_id: str,
-    ):
-        
-        """
-        Asynchronously streams the response from the agent based on the provided messages.
-
-        Args:
-            messages (List[dict]): The messages to send to the agent.
-            deployment_id (str): The ID of the agent's deployment.
-        Yields:
-            dict[str, str]: The response from the agent.
-        
-        Yield example:
-            {'type': 'delta', 'content': event.delta}
-            {'type': 'done', 'content': event.content}
-            {'type': 'error', 'content': str(e)}
-        """
-        
-        if isinstance(self.provider, AsyncOpenAI):
-            try:
-                async with self.provider.chat.completions.stream(
-                    model=deployment_id,
-                    messages=messages,  # type: ignore
-                ) as stream:
-                    async for event in stream:
-                        if event.type == 'content.delta':
-                            yield {'type': 'delta', 'content': event.delta}
-                        elif event.type == 'content.done':
-                            yield {'type': 'done', 'content': event.content}
-            except Exception as e:
-                yield {'type': 'error', 'content': str(e)}
-
-        else:
-            raise NotImplementedError("Streaming is not implemented for this provider.")
-
-    

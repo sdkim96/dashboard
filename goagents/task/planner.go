@@ -1,4 +1,4 @@
-package planner
+package task
 
 import (
 	"context"
@@ -12,28 +12,55 @@ import (
 	"github.com/openai/openai-go"
 	opt "github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/shared"
-	"github.com/sdkim96/dashboard/registry"
 	"github.com/sdkim96/dashboard/utils/providers"
 )
 
-const RootStepID = "root"
 const RootAgentID = "root-agent"
 
 // Plan
 //
 // Plan represents a plan for an task(user's query)
 type Plan struct {
-	ID           string    `json:"id"`
-	Objective    string    `json:"objective"`
-	MaximumSteps int       `json:"maximum_steps"`
-	IsCompleted  bool      `json:"is_completed"`
-	CreatedAt    time.Time `json:"created_at"`
-	Context      string    `json:"context"`
-	mu           sync.RWMutex
+	id           string
+	objective    string
+	context      string
+	maximumSteps int
+	isCompleted  bool
 }
 
+func (p *Plan) ID() string {
+	return p.id
+}
+func (p *Plan) Objective() string {
+	return p.objective
+}
+func (p *Plan) MaximumSteps() int {
+	return p.maximumSteps
+}
+func (p *Plan) Context() string {
+	return p.context
+}
+
+func NewPlan(
+	objective string,
+	context string,
+) (*Plan, error) {
+	uid4 := "plan-" + uuid.New().String()
+	plan := &Plan{
+		id:           uid4,
+		objective:    objective,
+		context:      context,
+		maximumSteps: 5,
+		isCompleted:  false,
+	}
+	return plan, nil
+}
+
+func (p *Plan) Complete() {
+	p.isCompleted = true
+}
 func (p *Plan) IsFinished() bool {
-	return p.IsCompleted
+	return p.isCompleted
 }
 
 // Step
@@ -46,16 +73,46 @@ type StepBody struct {
 	MinimumGoal string `json:"minimum_goal"`
 }
 type Step struct {
-	ID            string    `json:"id"`
-	PlanID        string    `json:"plan_id"`
-	StepBody      StepBody  `json:"step_body"`
-	BeforeAgentID string    `json:"before_agent_id"`
-	Result        string    `json:"result"`
-	CreatedAt     time.Time `json:"created_at"`
+	id string
+	StepBody
+	result        string
+	beforeAgentID string
+	createdAt     time.Time
+}
+
+func (s *Step) ID() string {
+	return s.id
+}
+func (s *Step) Result() string {
+	return s.result
+}
+
+func NewStep(
+	agentID string,
+	query string,
+	minimumGoal string,
+	beforeAgentID string,
+) (*Step, error) {
+	uid4 := "step-" + uuid.New().String()
+	step := &Step{
+		id: uid4,
+		StepBody: StepBody{
+			AgentID:     agentID,
+			Query:       query,
+			MinimumGoal: minimumGoal,
+		},
+		result:        "",
+		beforeAgentID: beforeAgentID,
+		createdAt:     time.Now(),
+	}
+	return step, nil
 }
 
 func (s *Step) IsFinished() bool {
-	return s.Result != ""
+	return s.result != ""
+}
+func (s *Step) Complete(result string) {
+	s.result = result
 }
 
 // 에이전트 플랜을 세우고 플랜을 관리하는 ControlPlane
@@ -63,12 +120,14 @@ func (s *Step) IsFinished() bool {
 type Planner struct {
 	Plan  *Plan
 	Steps map[string]*Step
+	mu    sync.RWMutex
+	ai    openai.Client
 }
 
-func (p *Planner) ToStepsDescription() string {
+func (p *Planner) DescribeMe() string {
 	var descriptions []string
 	for _, step := range p.Steps {
-		descriptions = append(descriptions, fmt.Sprintf("단계: %s, 결과: %s", step.StepBody.Query, step.Result))
+		descriptions = append(descriptions, fmt.Sprintf("단계: %s, 결과: %s", step.Query, step.result))
 	}
 	return strings.Join(descriptions, "\n")
 }
@@ -147,17 +206,16 @@ func NewPlanner(
 		return nil, err
 	}
 
-	plan := &Plan{
-		ID:           "plan-" + uuid.New().String(),
-		Objective:    objective,
-		Context:      userContext,
-		MaximumSteps: maximumSteps,
-		IsCompleted:  false,
-		CreatedAt:    time.Now(),
+	plan, err := NewPlan(objective, userContext)
+	if err != nil {
+		fmt.Printf("Error creating new plan: %s\n", err)
+		return nil, err
 	}
 	planner := &Planner{
 		Plan:  plan,
 		Steps: make(map[string]*Step),
+		ai:    openaiClient,
+		mu:    sync.RWMutex{},
 	}
 
 	return planner, nil
@@ -165,16 +223,21 @@ func NewPlanner(
 
 func (p *Planner) PlanStep(
 	ctx context.Context,
-	agents []*registry.AgentCard,
+	agents []*AgentHeader,
+	beforeAgentID string,
 ) (*Step, error) {
-	uid4 := "step-" + uuid.New().String()
+
+	describes := make([]string, 0)
+	for _, a := range agents {
+		describes = append(describes, a.Describe())
+	}
+
 	systemPrompt := fmt.Sprintf(
 		NewStepPrompt,
-		agents,
-		p.Plan.Context,
+		describes,
+		p.Plan.Context(),
 	)
-	openaiClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
-	ai := providers.NewOpenAIProvider(&openaiClient, systemPrompt)
+	ai := providers.NewOpenAIProvider(&p.ai, systemPrompt)
 
 	stepBody, err := providers.InvokeStructuredOutput[StepBody](
 		ctx,
@@ -186,43 +249,54 @@ func (p *Planner) PlanStep(
 		fmt.Printf("Error invoking OpenAI for step planning: %s\n", err)
 		return nil, err
 	}
-	step := &Step{
-		ID:            uid4,
-		PlanID:        p.Plan.ID,
-		BeforeAgentID: RootAgentID,
-		StepBody:      stepBody,
-		Result:        "",
-		CreatedAt:     time.Now(),
+	newStep, err := NewStep(
+		stepBody.AgentID,
+		stepBody.Query,
+		stepBody.MinimumGoal,
+		beforeAgentID,
+	)
+	if err != nil {
+		return nil, err
 	}
-	return step, nil
+	return newStep, nil
 }
 
-func (p *Planner) AddStep(step *Step) {
-	p.Plan.mu.Lock()
-	p.Steps[step.ID] = step
-	p.Plan.mu.Unlock()
+func (p *Planner) AddStep(step *Step) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if _, exists := p.Steps[step.ID()]; exists {
+		return fmt.Errorf("step %s already exists", step.ID())
+	}
+	p.Steps[step.ID()] = step
+	return nil
 }
 
-func (p *Planner) DecideCompletion(
+func (p *Planner) CompleteStep(
 	ctx context.Context,
 	stepID string,
 	result string,
-) (bool, error) {
+) error {
 	if step, exists := p.Steps[stepID]; exists {
-		step.Result = result
-		fmt.Printf("Step %s finished with result: %s\n", step.ID, step.Result)
+		step.Complete(result)
+		fmt.Printf("Step %s finished with result: %s\n", step.ID(), step.Result())
+		return nil
 	}
-	if len(p.Steps) >= p.Plan.MaximumSteps {
-		p.Plan.IsCompleted = true
-		fmt.Printf("Plan %s is completed\n", p.Plan.ID)
+	return fmt.Errorf("step %s not found", stepID)
+}
+
+func (p *Planner) CheckPlanCompletion(ctx context.Context) (bool, error) {
+	if len(p.Steps) >= p.Plan.MaximumSteps() {
+		p.Plan.Complete()
+		fmt.Printf("Plan %s is completed\n", p.Plan.ID())
+		return true, nil
 	}
 	systemPrompt := fmt.Sprintf(
 		IsPlanFinishedPrompt,
-		p.ToStepsDescription(),
-		p.Plan.Objective,
+		p.DescribeMe(),
+		p.Plan.Objective(),
 	)
-	openaiClient := openai.NewClient(opt.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
-	ai := providers.NewOpenAIProvider(&openaiClient, systemPrompt)
+
+	ai := providers.NewOpenAIProvider(&p.ai, systemPrompt)
 	isFinished, err := providers.InvokeStructuredOutput[IsFinished](
 		ctx,
 		ai,
@@ -233,7 +307,6 @@ func (p *Planner) DecideCompletion(
 		fmt.Printf("Error invoking OpenAI for plan completion check: %s\n", err)
 		return false, err
 	}
-	p.Plan.IsCompleted = isFinished.Finished
 
 	return isFinished.Finished, nil
 }

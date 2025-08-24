@@ -197,7 +197,7 @@ f"""
                 event="data",
                 data={"message": response['content']}
             )
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0.05)
             lg.logger.debug(f"Streaming: {response['content']}")
             parts += response['content']
         elif response['type'] == 'done':
