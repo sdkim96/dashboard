@@ -639,3 +639,5 @@ class PostVectorizeFilesResponse(BaseResponse):
             request_id=str(uuid.uuid4()),
             file_id=str(uuid.uuid4())
         )
+
+    

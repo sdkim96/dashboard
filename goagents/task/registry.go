@@ -10,7 +10,9 @@ type AgentHeader struct {
 	Tags           []string `json:"tags"`
 }
 type AgentBody struct {
-	SystemPrompt string
+	Instruction          string
+	InstructionVariables []string
+	output
 }
 
 func (h *AgentHeader) Describe() string {

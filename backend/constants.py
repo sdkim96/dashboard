@@ -1,6 +1,7 @@
 import enum
 
 PROJECT_API_ENDPOINT = "/api/v1"
+V2_API_ENDPOINT = "/api/v2"
 
 
 API_BASE_MESSAGE = "API successfully processed."
@@ -16,7 +17,8 @@ class APIPrefix(enum.Enum):
     RECOMMENDATIONS = PROJECT_API_ENDPOINT + "/recommendations"
     TOOLS = PROJECT_API_ENDPOINT + "/tools"
     FILES = PROJECT_API_ENDPOINT + "/files"
-    
+    V2_COMPLETION = V2_API_ENDPOINT + "/completion"
+
 
 class APITag(enum.Enum):
     """
@@ -31,3 +33,4 @@ class APITag(enum.Enum):
     RECOMMENDATIONS = "recommendations"
     TOOLS = "tools"
     FILES = "files"
+    V2_COMPLETION = "v2_completion"

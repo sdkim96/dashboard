@@ -49,14 +49,28 @@ func DoTask(
 		return err
 	}
 
-	for plane.Listen() {
+	dataChan := make(chan any)
+
+	for {
 
 		s, err := plane.Planner.PlanStep(ctx, plane.Router)
 		if err != nil {
 			return err
 		}
-		plane.Router.RouteToAgent(s)
+		plane.Planner.AddStep(s)
+		plane.Router.RouteToAgent(s, dataChan)
+		<-dataChan
+		plane.Planner.CompleteStep(ctx, s.ID(), "result")
+		fin, err := plane.Planner.CheckPlanCompletion(ctx)
+		if err != nil {
+			return err
+		}
+		if fin {
+			break
+		}
 
 	}
+
+	return nil
 
 }
