@@ -1,13 +1,16 @@
 import enum
 
-from typing import Any, Callable, Type
-from pydantic import BaseModel, Field
+from typing import Type, TypeVar, Generic
+from pydantic import BaseModel, Field, ConfigDict
 
 import agents_v2.types as t
 
+
+
 class ToolType(str, enum.Enum):
-    web = "search"
+    web = "web"
     rag = "rag"
+    calculator = "calculator"
 
 
 class ToolSpec(BaseModel):
@@ -30,9 +33,17 @@ class ToolSpec(BaseModel):
         ...,
         description="The parameters schema for the tool.",
     )
-    output: Type[t.PydanticFormatType] = Field(
+
+
+class ToolResponse(BaseModel, Generic[t.ToolOutputT]):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    output: t.ToolOutputT | None = Field(
         ...,
-        description="The output schema for the tool.",
+        description="The output of the tool.",
+    )
+    error: Exception | None = Field(
+        None,
+        description="An error that occurred during tool execution, if any.",
     )
 
 

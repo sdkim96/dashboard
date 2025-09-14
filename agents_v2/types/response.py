@@ -2,10 +2,13 @@ import abc
 from typing import Generic, TypeVar
 from pydantic import BaseModel
 
+ToolOutputT = TypeVar("ToolOutputT")
+
 class PydanticFormatType(BaseModel, abc.ABC):
     
-    @abc.abstractmethod
+    
     @classmethod
+    @abc.abstractmethod
     def default(cls) -> "PydanticFormatType":
         pass
 

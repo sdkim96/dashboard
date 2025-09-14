@@ -51,7 +51,7 @@ class OpenAIProvider(BaseProvider):
         *,
         instructions: str,
         prompt: str,
-        history: List[History] | None,
+        history: History | None,
         model: ModelEnum,
         response_fmt: type[t.ResponseFormatT] = str,
     ) -> resp.ProviderResponse[t.ResponseFormatT]:
@@ -100,11 +100,10 @@ class OpenAIProvider(BaseProvider):
     ):
         pass
 
-    def _handle_request(self, prompt: str, history: List[History] | None) -> List[dict[str, str]]:
+    def _handle_request(self, prompt: str, history: History | None) -> List[dict[str, str]]:
         msgs = []
         if history:
-            for entry in history:
-                msgs.extend(entry.to_ai_message_like())
+            msgs.extend(history.to_ai_message_like())
 
         msgs.append({"role": "user", "content": prompt})
         return msgs

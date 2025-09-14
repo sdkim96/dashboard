@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import agents_v2.types as t
 from agents_v2.providers.response import ProviderResponse
@@ -18,7 +19,7 @@ class BaseProvider(ABC):
         instructions: str,
         prompt: str,
         history: list | None,
-        model: str,
+        model: Enum,
         response_fmt: type[t.ResponseFormatT],
     ) -> ProviderResponse[t.ResponseFormatT]:
         pass
