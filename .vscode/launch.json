@@ -11,6 +11,12 @@
             "module": "agents_v2.tools.manager"
         },
         {
+            "name": "testtest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tests.testaa"
+        },
+        {
             "name": "Python Debugger: FastAPI",
             "type": "debugpy",
             "request": "launch",

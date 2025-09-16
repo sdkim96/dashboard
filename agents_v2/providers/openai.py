@@ -7,8 +7,9 @@ from openai.types.responses import ResponseUsage, ResponseError
 import agents_v2.providers.response as resp
 import agents_v2.types as t
 
-from agents_v2.utils.history import History
+from agents_v2.memory.history import History
 from agents_v2.providers.base import BaseProvider
+
 
 class ModelEnum(str, enum.Enum):
     gpt_4o = "gpt-4o"
@@ -50,18 +51,21 @@ class OpenAIProvider(BaseProvider):
         self,
         *,
         instructions: str,
-        prompt: str,
+        prompt: str | None,
         history: History | None,
         model: ModelEnum,
         response_fmt: type[t.ResponseFormatT] = str,
     ) -> resp.ProviderResponse[t.ResponseFormatT]:
+        
+        if prompt is None and (history is None or len(history) == 0):
+            raise ValueError("Either prompt or history must be provided.")
 
         input_messages = self._handle_request(prompt, history)
 
         if issubclass(response_fmt, t.PydanticFormatType):
             parsed = await self.client.responses.parse(
                 text_format=response_fmt,
-                input=input_messages,
+                input=input_messages, #type: ignore
                 instructions=instructions,
                 model=model.value,
                 reasoning=self.reasoning_dict, # type: ignore
@@ -73,9 +77,9 @@ class OpenAIProvider(BaseProvider):
             usage_to_handle = parsed.usage
             error_to_handle = parsed.error
 
-        elif isinstance(response_fmt, str):
+        elif issubclass(response_fmt, str):
             response = await self.client.responses.create(
-                input=input_messages,
+                input=input_messages, #type: ignore
                 instructions=instructions,
                 model=model.value,
                 reasoning=self.reasoning_dict, # type: ignore
@@ -90,7 +94,7 @@ class OpenAIProvider(BaseProvider):
         
 
         return resp.ProviderResponse[t.ResponseFormatT](
-            response=output,
+            response=output, #type: ignore
             usage=usage, 
             error=error
         )
@@ -100,12 +104,13 @@ class OpenAIProvider(BaseProvider):
     ):
         pass
 
-    def _handle_request(self, prompt: str, history: History | None) -> List[dict[str, str]]:
+    def _handle_request(self, prompt: str | None, history: History | None) -> List[dict[str, str]]:
         msgs = []
         if history:
             msgs.extend(history.to_ai_message_like())
-
-        msgs.append({"role": "user", "content": prompt})
+        
+        if prompt:
+            msgs.append({"role": "user", "content": prompt})
         return msgs
     
 

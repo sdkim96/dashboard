@@ -1,13 +1,13 @@
 from enum import Enum
-from typing import Awaitable, Callable, Type, Tuple
+from typing import Awaitable, Callable, Type, Tuple, cast
 from inspect import iscoroutinefunction, getattr_static
 
 import agents_v2.types as t
 
 from agents_v2.providers.base import BaseProvider
 from agents_v2.providers.openai import ModelEnum
-from agents_v2.tools.spec import ToolSpec, ToolResponse, ToolType
-from agents_v2.utils.history import History, HistoryItem
+from agents_v2.tools.spec import ToolSpec, ToolResponse, ToolCall
+from agents_v2.memory.history import History, HistoryItem, RoleType
 
 
 class ToolManager:
@@ -116,76 +116,108 @@ class ToolManager:
     ) -> ToolResponse[t.ToolOutputT]:
         
         if not callable(fn):
-            return ToolResponse[t.ToolOutputT](output=None, error=ValueError("fn must be a callable function"))
+            return ToolResponse[t.ToolOutputT](
+                output=None, 
+                error=ValueError("fn must be a callable function"),
+                tool_name=self.toolspec.name,
+                tool_arguments=None
+            )
 
         if not iscoroutinefunction(fn):
-            return ToolResponse[t.ToolOutputT](output=None, error=TypeError("fn must be an async function"))
+            return ToolResponse[t.ToolOutputT](
+                output=None, 
+                error=TypeError("fn must be an async function"),
+                tool_name=self.toolspec.name,
+                tool_arguments=None
+            )
 
         try:
             params = await self._setup_toolparam(history=history)
         except Exception as e:
-            return ToolResponse[t.ToolOutputT](output=None, error=e)
+            return ToolResponse[t.ToolOutputT](
+                output=None, 
+                error=e,
+                tool_name=self.toolspec.name,
+                tool_arguments=None
+            )
 
         try:
             resp = await fn(params)
         except Exception as e:
-            return ToolResponse[t.ToolOutputT](output=None, error=e)
+            return ToolResponse[t.ToolOutputT](
+                output=None, 
+                error=e,
+                tool_name=self.toolspec.name,
+                tool_arguments=params.model_dump(mode="json")
+            )
 
         if not isinstance(resp, output_schema):
-            return ToolResponse[t.ToolOutputT](output=None, error=TypeError(f"Function return type {type(resp)} does not match expected output schema {output_schema}"))
+            return ToolResponse[t.ToolOutputT](
+                output=None, 
+                error=TypeError(f"Function return type {type(resp)} does not match expected output schema {output_schema}"),
+                tool_name=self.toolspec.name,
+                tool_arguments=params.model_dump(mode="json")
+            )
 
-        return ToolResponse[t.ToolOutputT](output=resp, error=None)
+        return ToolResponse[t.ToolOutputT](
+            output=resp, 
+            error=None,
+            tool_name=self.toolspec.name,
+            tool_arguments=params.model_dump(mode="json")
+        )
     
 
 if __name__ == "__main__":
     import asyncio
-    from pydantic import Field, BaseModel
-    from agents_v2.providers.openai import OpenAIProvider
-    from openai import AsyncOpenAI
-    from agents_v2.utils.constants import RoleType
+    from agents_v2.tools.registry import ai_provider, REGISTRY, WeatherResponse
     
-
-    class RandomSumInput(t.PydanticFormatType):
-        a: int = Field(..., description="An integer parameter.")
-        b: int = Field(..., description="Another integer parameter.")
-
-        @classmethod
-        def default(cls) -> "RandomSumInput":
-            return RandomSumInput(a=1, b=2)
-
-    class RandomSumOutput(BaseModel):
-        result : int = Field(..., description="The sum of a and b.")
-
-    async def example_tool_fn(params: RandomSumInput) -> RandomSumOutput:
-        return RandomSumOutput(result=params.a + params.b)
-
-
     async def main():
 
-        ai_provider = OpenAIProvider(client=AsyncOpenAI())
-
         history = History()
-        history.append(HistoryItem(
-            role=RoleType.USER,
-            content="1과 2를 더해줘"
-        ))
-        toolspec = ToolSpec(
-            name="ExampleSearchTool",
-            type=ToolType.calculator,
-            description="A tool to perform a search operation based on a query string.",
-            parameters=RandomSumInput
+        history.append(
+            HistoryItem(
+                role=RoleType.USER,
+                content="오늘 서울의 날씨가 어때?"
+            )
         )
-        tool_manager = ToolManager(ai=ai_provider, toolspec=toolspec)
+        weather_reporter = REGISTRY.get_manager("weather")
+        tool = REGISTRY.get_function("weather")
+        output_schema = cast(type[WeatherResponse], REGISTRY.get_output_schema("weather"))
 
-        response = await tool_manager.arun(
-            RandomSumOutput, 
-            fn=example_tool_fn,
-            history=history
+        response = await weather_reporter.arun(output_schema, fn=tool, history=history)  # Warm-up call
+        
+        history.append(
+            HistoryItem(
+                role=RoleType.TOOL,
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="tool_call_001",
+                        name=response.tool_name,
+                        arguments=response.tool_arguments or {},
+                        result=str(response.output.report) if response.output else "Error"
+                    )
+                ]
+            )
         )
-        if response.error:
-            print(f"Error: {response.error}")
-        else:
-            print(f"Output: {response.output.result if response.output else response.output}")
+
+        response2 = await ai_provider.ainvoke(
+            instructions="Respond to the user based on the tool output.",
+            prompt=None,
+            history=history,
+            model=ModelEnum.gpt_4o_mini,
+            response_fmt=str
+        )
+
+        history.append(
+            HistoryItem(
+                role=RoleType.ASSISTANT,
+                content=response2.response if response2.response else "No response"
+            )
+        )
+
+        print(history.to_ai_message_like())
+        
 
         
 
