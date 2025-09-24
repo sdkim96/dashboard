@@ -27,10 +27,18 @@ class WeatherResponse(t.PydanticFormatType):
 async def weather_report(params: WeatherQuery) -> WeatherResponse:
     return WeatherResponse(report=f"The weather is sunny for the location: {params.location}")
 
-class Registry(dict):
+class ToolRegistry(dict):
 
     def __init__(self) -> None:
         super().__init__()
+
+
+    def descriptions(self) -> str:
+        descs = []
+        for name, item in self.items():
+            manager: ToolManager = item["manager"]
+            descs.append(f"{name}: {manager.toolspec.description}")
+        return "\n".join(descs)
 
     def get_manager(self, tool_name: str) -> ToolManager:
         item = self.get(tool_name)
@@ -50,7 +58,7 @@ class Registry(dict):
             raise ValueError(f"Tool '{tool_name}' not found in registry")
         return item["output_schema"]
 
-REGISTRY = Registry()
+REGISTRY = ToolRegistry()
 REGISTRY["weather"] = {
     "manager": ToolManager(
         ai=ai_provider,

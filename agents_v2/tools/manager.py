@@ -5,7 +5,7 @@ from inspect import iscoroutinefunction, getattr_static
 import agents_v2.types as t
 
 from agents_v2.providers.base import BaseProvider
-from agents_v2.providers.openai import ModelEnum
+from agents_v2.providers.openai import OpenAIModelEnum
 from agents_v2.tools.spec import ToolSpec, ToolResponse, ToolCall
 from agents_v2.memory.history import History, HistoryItem, RoleType
 
@@ -49,7 +49,7 @@ class ToolManager:
     @property
     def chosen_model(self) -> Enum:
         if self.ai.provider_name == "openai":
-            model = ModelEnum.gpt_4o_mini
+            model = OpenAIModelEnum.gpt_4o_mini
         else:
             raise ValueError(f"Unsupported provider: {self.ai.provider_name}")
         return model
@@ -205,7 +205,7 @@ if __name__ == "__main__":
             instructions="Respond to the user based on the tool output.",
             prompt=None,
             history=history,
-            model=ModelEnum.gpt_4o_mini,
+            model=OpenAIModelEnum.gpt_4o_mini,
             response_fmt=str
         )
 

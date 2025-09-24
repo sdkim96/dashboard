@@ -11,7 +11,7 @@ from agents_v2.memory.history import History
 from agents_v2.providers.base import BaseProvider
 
 
-class ModelEnum(str, enum.Enum):
+class OpenAIModelEnum(str, enum.Enum):
     gpt_4o = "gpt-4o"
     gpt_4o_mini = "gpt-4o-mini"
     gpt_5_nano = "gpt-5-nano"
@@ -53,7 +53,7 @@ class OpenAIProvider(BaseProvider):
         instructions: str,
         prompt: str | None,
         history: History | None,
-        model: ModelEnum,
+        model: OpenAIModelEnum,
         response_fmt: type[t.ResponseFormatT] = str,
     ) -> resp.ProviderResponse[t.ResponseFormatT]:
         
