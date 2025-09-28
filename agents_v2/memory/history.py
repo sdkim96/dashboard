@@ -34,7 +34,7 @@ class History(list[HistoryItem]):
     def __init__(self) -> None:
         super().__init__()
 
-
+    
     def append(self, item: HistoryItem) -> None:
         if not isinstance(item, HistoryItem):
             raise ValueError("Only HistoryItem instances can be added to History.")
